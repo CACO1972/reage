@@ -36,10 +36,10 @@ serve(async (req) => {
 
     console.log(`Processing facial analysis for ${analysisId}`);
 
-    let facialSymmetryScore: number;
-    let facialMidlineDeviation: number;
-    let facialThirdsRatio: { upper: number; middle: number; lower: number };
-    let rawPayload: any;
+    let facialSymmetryScore: number | undefined;
+    let facialMidlineDeviation: number | undefined;
+    let facialThirdsRatio: { upper: number; middle: number; lower: number } | undefined;
+    let rawPayload: Record<string, unknown> | undefined;
 
     if (perfectApiKey && analysis.frontal_smile_url) {
       // Call Perfect Corp API
@@ -147,8 +147,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in run-facial-analysis-perfect:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
