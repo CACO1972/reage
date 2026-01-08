@@ -1,27 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { PremiumUpgrade } from '@/components/PremiumUpgrade';
-import { CouponCard } from '@/components/CouponCard';
 import { AnimatedScoreRing } from '@/components/AnimatedScoreRing';
 import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
 import { Model3DPreview } from '@/components/Model3DPreview';
 import { AIInsightCard } from '@/components/AIInsightCard';
-import { MetricBar } from '@/components/MetricBar';
+import { SmileSimulation } from '@/components/SmileSimulation';
+import { TreatmentSuggestions } from '@/components/TreatmentSuggestions';
+import { PremiumContentPreview } from '@/components/PremiumContentPreview';
+import { ExtendedMetrics } from '@/components/ExtendedMetrics';
+import { PremiumReport } from '@/components/PremiumReport';
+import { CouponQR } from '@/components/CouponQR';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
   RefreshCw, 
-  Download,
   Sparkles,
   Box,
   CheckCircle,
   TrendingUp,
-  AlertTriangle
+  Brain
 } from 'lucide-react';
 
 interface Analysis {
@@ -123,6 +126,7 @@ export default function Result() {
   const [coupon, setCoupon] = useState<UserCoupon | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const premiumSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchParams.get('payment') === 'success') {
@@ -204,6 +208,10 @@ export default function Result() {
     fetchAnalysis();
   };
 
+  const scrollToPremium = () => {
+    premiumSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   if (authLoading || loading) {
     return (
       <Layout>
@@ -232,6 +240,7 @@ export default function Result() {
   const hasSmileData = analysis.smile_score !== null;
   const hasFacialData = analysis.facial_symmetry_score !== null;
   const hasAllData = hasSmileData && hasFacialData;
+  const isPremium = analysis.mode === 'premium';
 
   return (
     <Layout>
@@ -267,12 +276,18 @@ export default function Result() {
                 year: 'numeric'
               })}
             </p>
+            {isPremium && (
+              <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Premium Activo</span>
+              </div>
+            )}
           </motion.div>
 
           {!hasAllData ? (
             <LoadingSection />
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-10">
               {/* Hero Scores */}
               <motion.div 
                 className="grid grid-cols-2 gap-6 py-6"
@@ -295,6 +310,24 @@ export default function Result() {
                   delay={400}
                 />
               </motion.div>
+
+              {/* Smile Simulation with Fade */}
+              {analysis.frontal_rest_url && analysis.frontal_smile_url && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    Simulación de Sonrisa
+                  </h3>
+                  <SmileSimulation
+                    restImageUrl={analysis.frontal_rest_url}
+                    smileImageUrl={analysis.frontal_smile_url}
+                  />
+                </motion.div>
+              )}
 
               {/* Face Analysis with Overlay */}
               {analysis.frontal_rest_url && (
@@ -324,52 +357,44 @@ export default function Result() {
                 )}
               />
 
-              {/* Detailed Metrics */}
+              {/* Extended Metrics */}
               <motion.div
-                className="space-y-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
               >
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  Métricas Detalladas
-                </h3>
-                
-                <MetricBar
-                  label="Línea media dental"
-                  value={analysis.midline_deviation_mm || 0}
-                  idealMin={0}
-                  idealMax={2}
-                  unit="mm"
-                  description="Desviación respecto al centro facial"
-                />
-                
-                <MetricBar
-                  label="Exposición gingival"
-                  value={analysis.gingival_display_mm || 0}
-                  idealMin={0}
-                  idealMax={3}
-                  unit="mm"
-                  description="Encía visible al sonreír"
-                />
-
-                <MetricBar
-                  label="Corredor bucal"
-                  value={((analysis.buccal_corridor_left || 0) + (analysis.buccal_corridor_right || 0)) / 2}
-                  idealMin={5}
-                  idealMax={15}
-                  unit="%"
-                  description="Espacio entre dientes y mejilla"
+                <ExtendedMetrics
+                  midlineDeviation={analysis.midline_deviation_mm || 0}
+                  gingivalDisplay={analysis.gingival_display_mm || 0}
+                  buccalCorridorLeft={analysis.buccal_corridor_left || 0}
+                  buccalCorridorRight={analysis.buccal_corridor_right || 0}
+                  facialThirds={analysis.facial_thirds_ratio}
+                  facialMidlineDeviation={analysis.facial_midline_deviation_mm || 0}
+                  isLocked={!isPremium}
                 />
               </motion.div>
 
-              {/* 3D Preview - Teaser */}
-              {analysis.frontal_smile_url && analysis.mode === 'freemium' && (
+              {/* Treatment Suggestions (2 free + locked) */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+              >
+                <TreatmentSuggestions
+                  smileScore={analysis.smile_score || 0}
+                  symmetryScore={analysis.facial_symmetry_score || 0}
+                  midlineDeviation={analysis.midline_deviation_mm || 0}
+                  gingivalDisplay={analysis.gingival_display_mm || 0}
+                  isLocked={!isPremium}
+                />
+              </motion.div>
+
+              {/* 3D Preview - Teaser for Freemium */}
+              {analysis.frontal_smile_url && !isPremium && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1 }}
+                  transition={{ delay: 1.2 }}
                 >
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Box className="w-5 h-5 text-primary" />
@@ -379,13 +404,24 @@ export default function Result() {
                 </motion.div>
               )}
 
-              {/* Locked Premium Insights */}
-              {analysis.mode === 'freemium' && (
+              {/* Premium Content Preview for Freemium */}
+              {!isPremium && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.3 }}
+                >
+                  <PremiumContentPreview onUpgradeClick={scrollToPremium} />
+                </motion.div>
+              )}
+
+              {/* Locked Premium Insights for Freemium */}
+              {!isPremium && (
                 <motion.div
                   className="space-y-4"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.2 }}
+                  transition={{ delay: 1.4 }}
                 >
                   <AIInsightCard
                     title="Recomendaciones Personalizadas"
@@ -402,45 +438,59 @@ export default function Result() {
                 </motion.div>
               )}
 
-              {/* Premium Upgrade CTA */}
-              {analysis.mode === 'freemium' ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.4 }}
-                >
-                  <PremiumUpgrade analysisId={analysis.id} onSuccess={() => fetchAnalysis()} />
-                </motion.div>
-              ) : (
-                <>
-                  {/* Premium unlocked content */}
-                  <div className="glass rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                        <CheckCircle className="w-6 h-6 text-white" />
+              {/* Premium Upgrade CTA or Premium Content */}
+              <div ref={premiumSectionRef}>
+                {!isPremium ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.5 }}
+                  >
+                    <PremiumUpgrade analysisId={analysis.id} onSuccess={() => fetchAnalysis()} />
+                  </motion.div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Premium Success Banner */}
+                    <motion.div 
+                      className="glass rounded-2xl p-6"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                          <CheckCircle className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-semibold">Análisis Premium Completo</h2>
+                          <p className="text-sm text-muted-foreground">Todas las funciones desbloqueadas</p>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="text-lg font-semibold">Premium Activo</h2>
-                        <p className="text-sm text-muted-foreground">Todas las funciones desbloqueadas</p>
-                      </div>
-                    </div>
 
-                    <AIInsightCard
-                      title="Análisis Completo IA"
-                      insight={getFacialInsight(analysis.facial_symmetry_score || 0, analysis.facial_thirds_ratio)}
+                      <AIInsightCard
+                        title="Análisis Completo IA"
+                        insight={getFacialInsight(analysis.facial_symmetry_score || 0, analysis.facial_thirds_ratio)}
+                      />
+                    </motion.div>
+
+                    {/* Premium Report */}
+                    <PremiumReport
+                      analysisId={analysis.id}
+                      smileScore={analysis.smile_score || 0}
+                      symmetryScore={analysis.facial_symmetry_score || 0}
                     />
+
+                    {/* Coupon with QR */}
+                    {coupon && (
+                      <CouponQR
+                        couponCode={coupon.coupon_code}
+                        discountPercent={coupon.discount_percent}
+                        originalValue={coupon.original_value}
+                        expiresAt={coupon.expires_at || undefined}
+                      />
+                    )}
                   </div>
-
-                  {coupon && (
-                    <CouponCard
-                      couponCode={coupon.coupon_code}
-                      discountPercent={coupon.discount_percent}
-                      originalValue={coupon.original_value}
-                      expiresAt={coupon.expires_at || undefined}
-                    />
-                  )}
-                </>
-              )}
+                )}
+              </div>
 
               {/* Actions */}
               <motion.div 
@@ -449,10 +499,6 @@ export default function Result() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.6 }}
               >
-                <Button variant="outline" className="flex-1" disabled>
-                  <Download className="w-4 h-4 mr-2" />
-                  Exportar PDF
-                </Button>
                 <Link to="/scan" className="flex-1">
                   <Button className="w-full">
                     Nuevo Análisis
