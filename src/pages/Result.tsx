@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { PremiumUpgrade } from '@/components/PremiumUpgrade';
+import { CouponCard } from '@/components/CouponCard';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Smile, 
   ScanFace, 
@@ -11,9 +14,9 @@ import {
   RefreshCw, 
   Download,
   ChevronRight,
-  Lock,
   Sparkles,
-  Box
+  Box,
+  CheckCircle
 } from 'lucide-react';
 
 interface Analysis {
@@ -30,6 +33,14 @@ interface Analysis {
   gingival_display_mm: number | null;
   buccal_corridor_left: number | null;
   buccal_corridor_right: number | null;
+}
+
+interface UserCoupon {
+  id: string;
+  coupon_code: string;
+  discount_percent: number;
+  original_value: number;
+  expires_at: string | null;
 }
 
 function MetricCard({ 
@@ -95,11 +106,26 @@ function LoadingSection({ title }: { title: string }) {
 
 export default function Result() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [coupon, setCoupon] = useState<UserCoupon | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Check for payment success
+  useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      toast({
+        title: '¡Pago exitoso!',
+        description: 'Tu análisis premium está siendo procesado.',
+      });
+      // Remove query param
+      navigate(`/result/${id}`, { replace: true });
+    }
+  }, [searchParams]);
 
   const fetchAnalysis = async () => {
     if (!id || !user) return;
@@ -125,6 +151,21 @@ export default function Result() {
       };
 
       setAnalysis(parsedData as Analysis);
+
+      // Fetch coupon if premium
+      if (data.mode === 'premium') {
+        const { data: couponData } = await supabase
+          .from('user_coupons')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (couponData) {
+          setCoupon(couponData as UserCoupon);
+        }
+      }
     } catch (error) {
       console.error('Error fetching analysis:', error);
     } finally {
@@ -367,35 +408,52 @@ export default function Result() {
               <LoadingSection title="Análisis Facial" />
             )}
 
-            {/* Premium Features (Locked) */}
-            <div className="glass rounded-2xl p-6 opacity-75">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Funciones Premium</h2>
-                  <p className="text-sm text-muted-foreground">Desbloquea más análisis</p>
-                </div>
-              </div>
+            {/* Premium Upgrade or Premium Features */}
+            {analysis.mode === 'freemium' ? (
+              <PremiumUpgrade analysisId={analysis.id} onSuccess={() => fetchAnalysis()} />
+            ) : (
+              <>
+                {/* Premium Features Unlocked */}
+                <div className="glass rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">Premium Activo</h2>
+                      <p className="text-sm text-muted-foreground">Todas las funciones desbloqueadas</p>
+                    </div>
+                  </div>
 
-              <div className="space-y-3">
-                <button className="w-full p-4 rounded-xl bg-muted/50 flex items-center justify-between group hover:bg-muted transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-sm">Análisis de Piel</span>
+                  <div className="space-y-3">
+                    <div className="w-full p-4 rounded-xl bg-accent/10 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-5 h-5 text-accent" />
+                        <span className="text-sm">Recomendaciones IA</span>
+                      </div>
+                      <span className="text-xs text-accent">Incluido</span>
+                    </div>
+                    <div className="w-full p-4 rounded-xl bg-accent/10 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Box className="w-5 h-5 text-accent" />
+                        <span className="text-sm">Modelo 3D Facial</span>
+                      </div>
+                      <span className="text-xs text-accent">Procesando...</span>
+                    </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button className="w-full p-4 rounded-xl bg-muted/50 flex items-center justify-between group hover:bg-muted transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Box className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-sm">Modelo 3D Educativo</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-            </div>
+                </div>
+
+                {/* Coupon Card */}
+                {coupon && (
+                  <CouponCard
+                    couponCode={coupon.coupon_code}
+                    discountPercent={coupon.discount_percent}
+                    originalValue={coupon.original_value}
+                    expiresAt={coupon.expires_at || undefined}
+                  />
+                )}
+              </>
+            )}
           </div>
 
           {/* Actions */}

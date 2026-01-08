@@ -250,6 +250,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_credits: {
+        Args: { p_basic?: number; p_premium?: number; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       analysis_mode: "freemium" | "premium"
