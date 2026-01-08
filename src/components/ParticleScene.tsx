@@ -15,8 +15,8 @@ export default function ParticleScene() {
         }}
         dpr={[1, 2]}
       >
-        <color attach="background" args={['hsl(222, 47%, 5%)']} />
-        <fog attach="fog" args={['hsl(222, 47%, 5%)', 10, 35]} />
+        <color attach="background" args={['hsl(220, 25%, 4%)']} />
+        <fog attach="fog" args={['hsl(220, 25%, 4%)', 10, 35]} />
         
         <Suspense fallback={null}>
           <ParticleField count={12000} />
