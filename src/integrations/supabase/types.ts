@@ -103,33 +103,117 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          flow_order: string | null
+          flow_token: string | null
+          id: string
+          metadata: Json | null
+          payment_type: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          flow_order?: string | null
+          flow_token?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_type?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          flow_order?: string | null
+          flow_token?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           age_range: string | null
+          basic_credits: number
           country: string | null
           created_at: string
           id: string
           plan: Database["public"]["Enums"]["user_plan"]
+          premium_credits: number
           role: Database["public"]["Enums"]["user_type"]
           updated_at: string
         }
         Insert: {
           age_range?: string | null
+          basic_credits?: number
           country?: string | null
           created_at?: string
           id: string
           plan?: Database["public"]["Enums"]["user_plan"]
+          premium_credits?: number
           role?: Database["public"]["Enums"]["user_type"]
           updated_at?: string
         }
         Update: {
           age_range?: string | null
+          basic_credits?: number
           country?: string | null
           created_at?: string
           id?: string
           plan?: Database["public"]["Enums"]["user_plan"]
+          premium_credits?: number
           role?: Database["public"]["Enums"]["user_type"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_coupons: {
+        Row: {
+          coupon_code: string
+          coupon_type: string
+          created_at: string
+          discount_percent: number
+          expires_at: string | null
+          id: string
+          original_value: number
+          redeemed_at: string | null
+          user_id: string
+        }
+        Insert: {
+          coupon_code: string
+          coupon_type?: string
+          created_at?: string
+          discount_percent?: number
+          expires_at?: string | null
+          id?: string
+          original_value?: number
+          redeemed_at?: string | null
+          user_id: string
+        }
+        Update: {
+          coupon_code?: string
+          coupon_type?: string
+          created_at?: string
+          discount_percent?: number
+          expires_at?: string | null
+          id?: string
+          original_value?: number
+          redeemed_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
