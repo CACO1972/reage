@@ -3,55 +3,228 @@ import { motion } from 'framer-motion';
 import { FileText, Download, Share2, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 
 interface PremiumReportProps {
   analysisId: string;
   smileScore: number;
   symmetryScore: number;
+  midlineDeviation?: number;
+  gingivalDisplay?: number;
+  buccalCorridorLeft?: number;
+  buccalCorridorRight?: number;
+  facialSymmetryScore?: number;
 }
 
-export function PremiumReport({ analysisId, smileScore, symmetryScore }: PremiumReportProps) {
+export function PremiumReport({ 
+  analysisId, 
+  smileScore, 
+  symmetryScore,
+  midlineDeviation = 0,
+  gingivalDisplay = 2,
+  buccalCorridorLeft = 8,
+  buccalCorridorRight = 8,
+  facialSymmetryScore = 85
+}: PremiumReportProps) {
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const { toast } = useToast();
 
+  const drawScoreCircle = (pdf: jsPDF, x: number, y: number, score: number, label: string, color: [number, number, number]) => {
+    const radius = 20;
+    
+    // Background circle
+    pdf.setDrawColor(230, 230, 230);
+    pdf.setLineWidth(3);
+    pdf.circle(x, y, radius, 'S');
+    
+    // Score arc (simplified as colored circle segment)
+    pdf.setDrawColor(...color);
+    pdf.setLineWidth(3);
+    const endAngle = (score / 100) * 360;
+    for (let angle = -90; angle < endAngle - 90; angle += 5) {
+      const rad = (angle * Math.PI) / 180;
+      const nextRad = ((angle + 5) * Math.PI) / 180;
+      pdf.line(
+        x + Math.cos(rad) * radius,
+        y + Math.sin(rad) * radius,
+        x + Math.cos(nextRad) * radius,
+        y + Math.sin(nextRad) * radius
+      );
+    }
+    
+    // Score text
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`${score}`, x, y + 2, { align: 'center' });
+    
+    // Label
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(label, x, y + radius + 8, { align: 'center' });
+  };
+
+  const drawMetricBar = (pdf: jsPDF, x: number, y: number, value: number, min: number, max: number, ideal: number, label: string) => {
+    const barWidth = 80;
+    const barHeight = 8;
+    
+    // Label
+    pdf.setFontSize(9);
+    pdf.setTextColor(60, 60, 60);
+    pdf.text(label, x, y - 3);
+    
+    // Background bar
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(x, y, barWidth, barHeight, 2, 2, 'F');
+    
+    // Ideal zone (green area) - simplified without opacity
+    const idealStart = ((ideal - 1 - min) / (max - min)) * barWidth;
+    const idealEnd = ((ideal + 1 - min) / (max - min)) * barWidth;
+    pdf.setFillColor(200, 240, 200);
+    pdf.rect(x + Math.max(0, idealStart), y, Math.min(idealEnd - idealStart, barWidth - idealStart), barHeight, 'F');
+    
+    // Value marker
+    const valuePos = Math.max(0, Math.min(barWidth, ((value - min) / (max - min)) * barWidth));
+    pdf.setFillColor(168, 85, 247);
+    pdf.circle(x + valuePos, y + barHeight / 2, 4, 'F');
+    
+    // Value text
+    pdf.setFontSize(8);
+    pdf.setTextColor(168, 85, 247);
+    pdf.text(`${value.toFixed(1)}`, x + valuePos, y + barHeight + 8, { align: 'center' });
+  };
+
+  const generatePDF = async () => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    
+    // Header gradient simulation
+    pdf.setFillColor(168, 85, 247);
+    pdf.rect(0, 0, pageWidth, 45, 'F');
+    
+    // Logo placeholder
+    pdf.setFillColor(255, 255, 255);
+    pdf.circle(20, 22, 8, 'F');
+    pdf.setTextColor(168, 85, 247);
+    pdf.setFontSize(12);
+    pdf.text('S', 20, 25, { align: 'center' });
+    
+    // Title
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(24);
+    pdf.text('ANÁLISIS FACIAL', 35, 20);
+    pdf.setFontSize(14);
+    pdf.text('Reporte Premium Simetría AI', 35, 28);
+    
+    // Date and ID
+    pdf.setFontSize(10);
+    pdf.text(`Fecha: ${new Date().toLocaleDateString('es-CL')}`, 35, 38);
+    pdf.text(`ID: ${analysisId.slice(0, 8)}`, pageWidth - 50, 38);
+    
+    // Main scores section
+    let yPos = 60;
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(14);
+    pdf.text('PUNTUACIONES PRINCIPALES', 20, yPos);
+    
+    yPos += 15;
+    drawScoreCircle(pdf, 50, yPos + 20, smileScore, 'Smile Score', [168, 85, 247]);
+    drawScoreCircle(pdf, 105, yPos + 20, symmetryScore, 'Simetría', [59, 130, 246]);
+    drawScoreCircle(pdf, 160, yPos + 20, facialSymmetryScore, 'Facial', [34, 197, 94]);
+    
+    // Metrics section
+    yPos += 60;
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('MÉTRICAS DETALLADAS', 20, yPos);
+    
+    yPos += 15;
+    drawMetricBar(pdf, 20, yPos, midlineDeviation, -3, 3, 0, 'Desviación Línea Media (mm)');
+    yPos += 20;
+    drawMetricBar(pdf, 20, yPos, gingivalDisplay, 0, 6, 2, 'Exposición Gingival (mm)');
+    yPos += 20;
+    drawMetricBar(pdf, 20, yPos, buccalCorridorLeft, 0, 20, 10, 'Corredor Bucal Izq (%)');
+    yPos += 20;
+    drawMetricBar(pdf, 20, yPos, buccalCorridorRight, 0, 20, 10, 'Corredor Bucal Der (%)');
+    
+    // Interpretation section
+    yPos += 30;
+    pdf.setFillColor(249, 250, 251);
+    pdf.roundedRect(15, yPos, pageWidth - 30, 50, 3, 3, 'F');
+    
+    pdf.setFontSize(12);
+    pdf.setTextColor(168, 85, 247);
+    pdf.text('💡 INTERPRETACIÓN AI', 20, yPos + 10);
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(60, 60, 60);
+    const interpretation = smileScore >= 80 
+      ? 'Tu sonrisa presenta excelentes proporciones. Los parámetros analizados están dentro de rangos ideales.'
+      : smileScore >= 60
+      ? 'Tu sonrisa tiene buenas características con algunas áreas de mejora. Consulta las recomendaciones.'
+      : 'Se identificaron oportunidades de mejora significativas. Un especialista puede ayudarte a optimizar tu sonrisa.';
+    
+    const splitText = pdf.splitTextToSize(interpretation, pageWidth - 50);
+    pdf.text(splitText, 20, yPos + 20);
+    
+    // Recommendations
+    yPos += 60;
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('RECOMENDACIONES', 20, yPos);
+    
+    yPos += 10;
+    const recommendations = [
+      '• Considera una evaluación presencial para tratamiento personalizado',
+      '• La exposición gingival puede optimizarse con procedimientos mínimamente invasivos',
+      '• Un diseño de sonrisa digital puede mostrar resultados proyectados'
+    ];
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(80, 80, 80);
+    recommendations.forEach((rec, i) => {
+      pdf.text(rec, 20, yPos + (i * 8));
+    });
+    
+    // Footer
+    const footerY = pdf.internal.pageSize.getHeight() - 25;
+    pdf.setFillColor(248, 250, 252);
+    pdf.rect(0, footerY - 5, pageWidth, 30, 'F');
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(168, 85, 247);
+    pdf.text('Clínica Miro', 20, footerY + 5);
+    
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFontSize(8);
+    pdf.text('Este reporte es generado por Simetría AI y no reemplaza una evaluación profesional.', 20, footerY + 12);
+    pdf.text('www.clinicamiro.cl | @clinicamiro', 20, footerY + 18);
+    
+    return pdf;
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     
-    // Simulate PDF generation (in production, this would call an edge function)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Create a simple text report for now
-    const reportContent = `
-ANÁLISIS FACIAL SIMETRÍA
-========================
-
-Fecha: ${new Date().toLocaleDateString('es-CL')}
-ID: ${analysisId}
-
-RESULTADOS
-----------
-• Smile Score: ${smileScore}/100
-• Simetría Facial: ${symmetryScore}/100
-
-Este reporte fue generado por Simetría AI.
-Para una evaluación completa, visite Clínica Miro.
-    `.trim();
-
-    const blob = new Blob([reportContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `simetria-analisis-${analysisId.slice(0, 8)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    setDownloading(false);
-    setDownloaded(true);
-    toast({
-      title: '¡Reporte descargado!',
-      description: 'Revisa tu carpeta de descargas.',
-    });
+    try {
+      const pdf = await generatePDF();
+      pdf.save(`simetria-analisis-${analysisId.slice(0, 8)}.pdf`);
+      
+      setDownloaded(true);
+      toast({
+        title: '¡Reporte PDF descargado!',
+        description: 'Revisa tu carpeta de descargas.',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error al generar PDF',
+        description: 'Intenta nuevamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleShare = async (platform: 'whatsapp' | 'facebook' | 'copy') => {
