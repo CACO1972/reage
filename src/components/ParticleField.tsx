@@ -161,12 +161,12 @@ export default function ParticleField({ count = 15000 }: ParticleFieldProps) {
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // Cyan/Teal primary color
-    const color1 = new THREE.Color('hsl(185, 80%, 55%)');
-    // Purple accent
-    const color2 = new THREE.Color('hsl(280, 70%, 60%)');
-    // Lighter cyan for highlights
-    const color3 = new THREE.Color('hsl(190, 90%, 70%)');
+    // Gold primary color
+    const color1 = new THREE.Color('hsl(38, 70%, 50%)');
+    // Bronze/amber accent
+    const color2 = new THREE.Color('hsl(28, 80%, 45%)');
+    // Warm white for highlights
+    const color3 = new THREE.Color('hsl(40, 30%, 85%)');
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
