@@ -14,16 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analyses: {
+        Row: {
+          buccal_corridor_left: number | null
+          buccal_corridor_right: number | null
+          created_at: string
+          facial_midline_deviation_mm: number | null
+          facial_symmetry_score: number | null
+          facial_thirds_ratio: Json | null
+          frontal_rest_url: string | null
+          frontal_smile_url: string | null
+          gingival_display_mm: number | null
+          id: string
+          midline_deviation_mm: number | null
+          mode: Database["public"]["Enums"]["analysis_mode"]
+          raw_ai_payload: Json | null
+          smile_score: number | null
+          user_id: string
+        }
+        Insert: {
+          buccal_corridor_left?: number | null
+          buccal_corridor_right?: number | null
+          created_at?: string
+          facial_midline_deviation_mm?: number | null
+          facial_symmetry_score?: number | null
+          facial_thirds_ratio?: Json | null
+          frontal_rest_url?: string | null
+          frontal_smile_url?: string | null
+          gingival_display_mm?: number | null
+          id?: string
+          midline_deviation_mm?: number | null
+          mode?: Database["public"]["Enums"]["analysis_mode"]
+          raw_ai_payload?: Json | null
+          smile_score?: number | null
+          user_id: string
+        }
+        Update: {
+          buccal_corridor_left?: number | null
+          buccal_corridor_right?: number | null
+          created_at?: string
+          facial_midline_deviation_mm?: number | null
+          facial_symmetry_score?: number | null
+          facial_thirds_ratio?: Json | null
+          frontal_rest_url?: string | null
+          frontal_smile_url?: string | null
+          gingival_display_mm?: number | null
+          id?: string
+          midline_deviation_mm?: number | null
+          mode?: Database["public"]["Enums"]["analysis_mode"]
+          raw_ai_payload?: Json | null
+          smile_score?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      analysis_3d: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          model_glb_url: string | null
+          status_3d: Database["public"]["Enums"]["status_3d"]
+          updated_at: string
+          wavespeed_task_id: string | null
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          model_glb_url?: string | null
+          status_3d?: Database["public"]["Enums"]["status_3d"]
+          updated_at?: string
+          wavespeed_task_id?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          model_glb_url?: string | null
+          status_3d?: Database["public"]["Enums"]["status_3d"]
+          updated_at?: string
+          wavespeed_task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_3d_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: true
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          age_range: string | null
+          country: string | null
+          created_at: string
+          id: string
+          plan: Database["public"]["Enums"]["user_plan"]
+          role: Database["public"]["Enums"]["user_type"]
+          updated_at: string
+        }
+        Insert: {
+          age_range?: string | null
+          country?: string | null
+          created_at?: string
+          id: string
+          plan?: Database["public"]["Enums"]["user_plan"]
+          role?: Database["public"]["Enums"]["user_type"]
+          updated_at?: string
+        }
+        Update: {
+          age_range?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          plan?: Database["public"]["Enums"]["user_plan"]
+          role?: Database["public"]["Enums"]["user_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      analysis_mode: "freemium" | "premium"
+      app_role: "admin" | "moderator" | "user"
+      status_3d: "pending" | "processing" | "completed" | "failed"
+      user_plan: "free" | "premium" | "pro"
+      user_type: "patient" | "pro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +299,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      analysis_mode: ["freemium", "premium"],
+      app_role: ["admin", "moderator", "user"],
+      status_3d: ["pending", "processing", "completed", "failed"],
+      user_plan: ["free", "premium", "pro"],
+      user_type: ["patient", "pro"],
+    },
   },
 } as const
