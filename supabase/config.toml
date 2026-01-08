@@ -1,1 +1,16 @@
 project_id = "ghjyzljrmmqncupqqjqf"
+
+[functions.analyze-smile-basic]
+verify_jwt = false
+
+[functions.run-facial-analysis-perfect]
+verify_jwt = false
+
+[functions.create-3d-model]
+verify_jwt = false
+
+[functions.create-flow-payment]
+verify_jwt = false
+
+[functions.flow-webhook]
+verify_jwt = false
