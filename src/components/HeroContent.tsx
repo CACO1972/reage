@@ -28,13 +28,14 @@ export default function HeroContent() {
       </div>
 
       {/* Slogan */}
-      <p className="animate-fade-up-delayed text-2xl font-light tracking-wide text-foreground/80 md:text-3xl lg:text-4xl">
+      <p className="animate-fade-up-delayed font-display text-3xl font-extralight tracking-[0.3em] uppercase text-primary/90 md:text-4xl lg:text-5xl">
         Vuelve a fluir
       </p>
 
       {/* Description */}
-      <p className="animate-fade-up-delayed-2 mt-8 max-w-md text-base text-muted-foreground md:text-lg">
-        Análisis dental y facial con inteligencia artificial. 
+      <p className="animate-fade-up-delayed-2 mt-10 max-w-lg text-lg font-light leading-relaxed tracking-wide text-foreground/70 md:text-xl">
+        Análisis dental y facial con <span className="text-primary font-normal">inteligencia artificial</span>. 
+        <br className="hidden md:block" />
         Descubre la armonía de tu rostro.
       </p>
 
