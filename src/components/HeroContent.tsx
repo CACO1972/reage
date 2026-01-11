@@ -33,16 +33,19 @@ export default function HeroContent() {
         />
       </div>
 
-      {/* Slogan */}
-      <p className="animate-fade-up font-display text-3xl font-extralight tracking-[0.3em] uppercase text-white md:text-4xl lg:text-5xl" style={{ animationDelay: '0.1s' }}>
-        Vuelve a fluir
-      </p>
+      {/* Headline */}
+      <h1 className="animate-fade-up font-display text-3xl font-bold tracking-tight text-white md:text-4xl lg:text-5xl" style={{ animationDelay: '0.1s' }}>
+        Analiza tu rostro y sonrisa con IA
+      </h1>
 
-      {/* Description */}
-      <p className="animate-fade-up mt-8 max-w-lg text-lg font-light leading-relaxed tracking-wide text-white/80 md:text-xl" style={{ animationDelay: '0.2s' }}>
-        Análisis dental y facial con <span className="text-primary font-medium">inteligencia artificial</span>. 
-        <br className="hidden md:block" />
-        Descubre la armonía de tu rostro.
+      {/* Subheadline */}
+      <h2 className="animate-fade-up mt-6 max-w-lg text-lg font-light leading-relaxed text-white/90 md:text-xl" style={{ animationDelay: '0.2s' }}>
+        Obtén un informe estético personalizado, con simulación y recomendaciones, en minutos.
+      </h2>
+
+      {/* Microcopy */}
+      <p className="animate-fade-up mt-4 text-sm text-white/60 tracking-wide" style={{ animationDelay: '0.25s' }}>
+        Pago único · Sin suscripción · Informe descargable en PDF
       </p>
 
       {/* App Flow Animation */}
@@ -92,16 +95,9 @@ export default function HeroContent() {
           className="group"
           onClick={handleCTA}
         >
-          {user ? 'Iniciar Análisis' : 'Comenzar'}
+          Analizar mi rostro y sonrisa ahora
           <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Button>
-      </div>
-
-      {/* Scroll indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-float hidden sm:block">
-        <div className="flex flex-col items-center gap-2 text-white/30">
-          <div className="h-12 w-px bg-gradient-to-b from-primary/50 to-transparent" />
-        </div>
       </div>
 
       <style>{`
