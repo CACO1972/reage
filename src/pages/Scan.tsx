@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
@@ -8,16 +8,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCameraCapture } from '@/hooks/useCameraCapture';
 import { FaceGuideOverlay } from '@/components/FaceGuideOverlay';
 import { PhotoRequirementsModal } from '@/components/PhotoRequirementsModal';
-import { 
-  Camera, 
-  Upload, 
-  X, 
-  CheckCircle2, 
-  ArrowRight, 
-  RotateCcw, 
+import {
+  Camera,
+  Upload,
+  X,
+  CheckCircle2,
+  ArrowRight,
   Info,
   AlertCircle,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,7 +24,7 @@ export default function Scan() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const {
     videoRef,
     isCameraOpen,
@@ -46,20 +45,22 @@ export default function Scan() {
     setCurrentMode,
     cancelCountdown,
   } = useCameraCapture({ minWidth: 480, minHeight: 640, autoCapture: true });
-  
+
   const [isUploading, setIsUploading] = useState(false);
-  const [showRequirements, setShowRequirements] = useState(true);
+  const [showRequirements, setShowRequirements] = useState(false);
+
+  // Best effort auto-open (may still require user gesture depending on browser)
+  useEffect(() => {
+    if (!authLoading && user && !isCameraOpen && !restPhoto && !smilePhoto) {
+      openCamera();
+    }
+  }, [authLoading, user, isCameraOpen, restPhoto, smilePhoto, openCamera]);
 
   // Redirect to auth if not logged in
   if (!authLoading && !user) {
     navigate('/auth');
     return null;
   }
-
-  const handleRequirementsContinue = () => {
-    setShowRequirements(false);
-    openCamera();
-  };
 
   const handleAnalyze = async () => {
     if (!restPhoto || !smilePhoto || !user) return;
@@ -148,10 +149,13 @@ export default function Scan() {
 
   return (
     <Layout>
-      <PhotoRequirementsModal 
-        open={showRequirements} 
+      <PhotoRequirementsModal
+        open={showRequirements}
         onOpenChange={setShowRequirements}
-        onContinue={handleRequirementsContinue}
+        onContinue={() => {
+          setShowRequirements(false);
+          openCamera();
+        }}
       />
 
       <div className="min-h-screen flex flex-col">
@@ -212,7 +216,10 @@ export default function Scan() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    onClick={captureFromCamera}
+                    onClick={() => {
+                      cancelCountdown();
+                      captureFromCamera();
+                    }}
                     disabled={isCapturing}
                     className="flex-1 h-12"
                   >
@@ -226,7 +233,10 @@ export default function Scan() {
                     )}
                   </Button>
                   <Button
-                    onClick={stopCamera}
+                    onClick={() => {
+                      cancelCountdown();
+                      stopCamera();
+                    }}
                     variant="outline"
                     className="h-12"
                   >
@@ -382,17 +392,26 @@ export default function Scan() {
               </div>
             </div>
 
-            {/* Tips */}
-            <div className="rounded-2xl bg-primary/5 border border-primary/10 px-4 py-3">
-              <p className="text-xs font-medium text-primary mb-1.5">
-                Para mejores resultados
-              </p>
-              <ol className="text-[11px] text-muted-foreground space-y-0.5">
-                <li>1 · Buena iluminación frontal, sin sombras</li>
-                <li>2 · Rostro centrado y recto, mirando a cámara</li>
-                <li>3 · Sin gafas, accesorios ni cabello cubriendo</li>
-                <li>4 · Fondo neutro y uniforme preferible</li>
-              </ol>
+            {/* Quick visual guide (no texto largo) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                  Bien
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Luz frontal + rostro centrado
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <X className="w-4 h-4 text-destructive" />
+                  Evitar
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Sombras fuertes o ángulo inclinado
+                </div>
+              </div>
             </div>
           </section>
         </main>
