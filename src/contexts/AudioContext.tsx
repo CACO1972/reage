@@ -24,46 +24,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const loadAudio = useCallback(async () => {
-    if (isLoaded || isLoading) return;
-    
-    setIsLoading(true);
-    
-    try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/elevenlabs-ambient`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-        },
-        body: JSON.stringify({
-          prompt: 'Gentle spa ambient soundscape, soft flowing water, peaceful wellness atmosphere, calming meditation music, serene and tranquil',
-          duration: 22
-        }),
-      });
-
-      if (!response.ok) {
-        console.warn('Could not load ambient audio');
-        setIsLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (data.audioContent) {
-        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
-        const audio = new Audio(audioUrl);
-        audio.loop = true;
-        audio.volume = 0;
-        audioRef.current = audio;
-        setIsLoaded(true);
-      }
-    } catch (error) {
-      console.warn('Error loading ambient audio:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoaded, isLoading]);
+    // Audio ambiente deshabilitado - requiere plan de pago ElevenLabs con Sound Generation
+    // La app funciona completamente sin audio
+    console.info('Audio ambiente deshabilitado (requiere ElevenLabs Sound Generation)');
+    setIsLoading(false);
+  }, []);
 
   const fadeIn = useCallback((targetVolume: number) => {
     const audio = audioRef.current;
