@@ -34,6 +34,9 @@ export default function Scan() {
     restPhoto,
     smilePhoto,
     currentMode,
+    countdown,
+    isPositionValid,
+    validationProgress,
     openCamera,
     stopCamera,
     captureFromCamera,
@@ -41,7 +44,8 @@ export default function Scan() {
     clearPhoto,
     readyForAnalysis,
     setCurrentMode,
-  } = useCameraCapture({ minWidth: 480, minHeight: 640 });
+    cancelCountdown,
+  } = useCameraCapture({ minWidth: 480, minHeight: 640, autoCapture: true });
   
   const [isUploading, setIsUploading] = useState(false);
   const [showRequirements, setShowRequirements] = useState(true);
@@ -198,7 +202,13 @@ export default function Scan() {
                     muted
                     autoPlay
                   />
-                  <FaceGuideOverlay isActive={true} />
+                  <FaceGuideOverlay 
+                    isActive={true} 
+                    countdown={countdown}
+                    validationProgress={validationProgress}
+                    isPositionValid={isPositionValid}
+                    captureMode={currentMode}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button
