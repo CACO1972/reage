@@ -23,7 +23,7 @@ export default function HeroContent() {
   };
 
   return (
-    <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pb-24 text-center">
       {/* Logo - doubled size */}
       <div className="animate-fade-up mb-6">
         <img 
@@ -98,7 +98,7 @@ export default function HeroContent() {
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-float">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-float hidden sm:block">
         <div className="flex flex-col items-center gap-2 text-white/30">
           <div className="h-12 w-px bg-gradient-to-b from-primary/50 to-transparent" />
         </div>

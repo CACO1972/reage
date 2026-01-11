@@ -61,59 +61,91 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
 
   const openCamera = useCallback(async () => {
     setError(null);
-    try {
-      // Request camera with explicit user-facing (selfie) mode
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: { exact: "user" },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 1920, min: 960 },
-        },
-        audio: false,
-      };
 
-      let stream: MediaStream;
-      
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (e) {
-        // Fallback if exact constraint fails (some devices don't support it)
-        console.log("Falling back to non-exact facingMode");
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280, min: 640 },
-            height: { ideal: 1920, min: 960 },
-          },
-          audio: false,
-        });
-      }
-
+    const attachStream = async (stream: MediaStream) => {
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('webkit-playsinline', 'true');
-        
-        videoRef.current.onloadedmetadata = async () => {
-          try {
-            await videoRef.current?.play();
-            setIsCameraOpen(true);
-          } catch (e) {
-            console.error("Video play error:", e);
-            setError("Error al reproducir video. Toca la pantalla para reintentar.");
-          }
-        };
+        videoRef.current.setAttribute("playsinline", "true");
+        videoRef.current.setAttribute("webkit-playsinline", "true");
+
+        try {
+          await videoRef.current.play();
+          setIsCameraOpen(true);
+        } catch (e) {
+          // On mobile Safari/Chrome this can still require a user gesture.
+          setIsCameraOpen(true);
+        }
+      } else {
+        setIsCameraOpen(true);
       }
+    };
+
+    const pickFrontDeviceId = async (): Promise<string | null> => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videos = devices.filter((d) => d.kind === "videoinput");
+        if (!videos.length) return null;
+
+        // Heuristics: prefer labels that indicate front/selfie.
+        const preferred = videos.find((d) =>
+          /front|user|facetime|selfie/i.test(d.label)
+        );
+        return (preferred || videos[0]).deviceId || null;
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      // 1) First attempt: ask explicitly for selfie camera.
+      let stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 1920 },
+        },
+        audio: false,
+      });
+
+      // 2) If browser still gave us the rear camera, restart using deviceId.
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings?.() || {};
+      const label = track?.label || "";
+      const looksRear =
+        settings.facingMode === "environment" || /back|rear|environment/i.test(label);
+
+      if (looksRear) {
+        stream.getTracks().forEach((t) => t.stop());
+        const deviceId = await pickFrontDeviceId();
+        if (deviceId) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 1920 },
+            },
+            audio: false,
+          });
+        } else {
+          // Fallback back to facingMode user again
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false,
+          });
+        }
+      }
+
+      await attachStream(stream);
     } catch (e: any) {
       console.error("Camera error:", e);
-      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
-        setError("Permiso de cámara denegado. Habilítalo en la configuración del navegador.");
-      } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
-        setError("No se encontró cámara frontal. Usa 'Subir imagen'.");
-      } else if (e.name === "OverconstrainedError") {
-        setError("La cámara no soporta el modo selfie. Usa 'Subir imagen'.");
+      if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
+        setError(
+          "Permiso de cámara denegado. Toca 'Tomar foto' y acepta los permisos del navegador."
+        );
+      } else if (e?.name === "NotFoundError" || e?.name === "DevicesNotFoundError") {
+        setError("No se encontró cámara. Usa 'Subir imagen'.");
       } else {
         setError("No se pudo acceder a la cámara. Comprueba permisos o usa 'Subir imagen'.");
       }
