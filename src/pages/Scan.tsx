@@ -1,280 +1,88 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useCameraCapture } from '@/hooks/useCameraCapture';
 import { FaceGuideOverlay } from '@/components/FaceGuideOverlay';
 import { PhotoRequirementsModal } from '@/components/PhotoRequirementsModal';
-import { Camera, Upload, X, CheckCircle2, ArrowRight, RotateCcw, Info, History } from 'lucide-react';
+import { 
+  Camera, 
+  Upload, 
+  X, 
+  CheckCircle2, 
+  ArrowRight, 
+  RotateCcw, 
+  Info,
+  AlertCircle,
+  Sparkles
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type Step = 'rest' | 'smile';
-type CaptureMode = 'current' | 'historical';
-
-interface ImageData {
-  file: File;
-  preview: string;
-}
-
 export default function Scan() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<Step>('rest');
-  const [captureMode, setCaptureMode] = useState<CaptureMode>('current');
-  const [restImage, setRestImage] = useState<ImageData | null>(null);
-  const [smileImage, setSmileImage] = useState<ImageData | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [showRequirements, setShowRequirements] = useState(true);
-  const [positionValid, setPositionValid] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const {
+    videoRef,
+    isCameraOpen,
+    isCapturing,
+    error: cameraError,
+    restPhoto,
+    smilePhoto,
+    currentMode,
+    openCamera,
+    stopCamera,
+    captureFromCamera,
+    handleFileInput,
+    clearPhoto,
+    readyForAnalysis,
+    setCurrentMode,
+  } = useCameraCapture({ minWidth: 480, minHeight: 640 });
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showRequirements, setShowRequirements] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
+  // Redirect to auth if not logged in
+  if (!authLoading && !user) {
+    navigate('/auth');
+    return null;
+  }
 
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
-
-  const validateImage = (file: File): Promise<boolean> => {
-    return new Promise((resolve) => {
-      // Check file type - accept more formats for gallery uploads
-      const validTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp'];
-      if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
-        toast({
-          variant: 'destructive',
-          title: 'Formato no válido',
-          description: 'Solo se permiten imágenes (JPEG, PNG, HEIC, WebP).',
-        });
-        resolve(false);
-        return;
-      }
-
-      // Check file size (max 15MB for historical photos)
-      const maxSize = captureMode === 'historical' ? 15 : 10;
-      if (file.size > maxSize * 1024 * 1024) {
-        toast({
-          variant: 'destructive',
-          title: 'Imagen muy grande',
-          description: `El tamaño máximo es ${maxSize}MB.`,
-        });
-        resolve(false);
-        return;
-      }
-
-      // Check resolution
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(img.src);
-        const minRes = captureMode === 'historical' ? 320 : 480;
-        const maxRes = 8192;
-        
-        if (img.width < minRes || img.height < minRes) {
-          toast({
-            variant: 'destructive',
-            title: 'Resolución baja',
-            description: `Mínimo ${minRes}x${minRes} píxeles requeridos.`,
-          });
-          resolve(false);
-          return;
-        }
-
-        if (img.width > maxRes || img.height > maxRes) {
-          toast({
-            variant: 'destructive',
-            title: 'Resolución muy alta',
-            description: `Máximo ${maxRes}x${maxRes} píxeles permitidos.`,
-          });
-          resolve(false);
-          return;
-        }
-
-        resolve(true);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src);
-        toast({
-          variant: 'destructive',
-          title: 'Error al leer imagen',
-          description: 'No se pudo procesar la imagen seleccionada.',
-        });
-        resolve(false);
-      };
-      img.src = URL.createObjectURL(file);
-    });
+  const handleRequirementsContinue = () => {
+    setShowRequirements(false);
+    openCamera();
   };
 
-  const startCamera = async () => {
-    setCameraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'user', 
-          width: { ideal: 1920, min: 640 }, 
-          height: { ideal: 1080, min: 480 } 
-        }
-      });
-      setCameraStream(stream);
-      setIsCapturing(true);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(console.error);
-        };
-      }
-    } catch (error: any) {
-      console.error('Camera error:', error);
-      setCameraError(error.name === 'NotAllowedError' 
-        ? 'Permiso de cámara denegado. Habilítalo en la configuración del navegador.'
-        : 'No se pudo acceder a la cámara.');
-      toast({
-        variant: 'destructive',
-        title: 'Error de cámara',
-        description: error.name === 'NotAllowedError' 
-          ? 'Permiso denegado. Habilita la cámara en configuración.'
-          : 'No se pudo acceder a la cámara.',
-      });
-    }
-  };
-
-  const stopCamera = useCallback(() => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-    }
-    setIsCapturing(false);
-    setPositionValid(false);
-  }, [cameraStream]);
-
-  const capturePhoto = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    const videoWidth = video.videoWidth || 1280;
-    const videoHeight = video.videoHeight || 720;
-    
-    canvas.width = videoWidth;
-    canvas.height = videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Mirror horizontally for natural selfie
-    ctx.translate(videoWidth, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
-    
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      
-      const file = new File([blob], `${step}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      const preview = URL.createObjectURL(blob);
-      
-      if (step === 'rest') {
-        setRestImage({ file, preview });
-      } else {
-        setSmileImage({ file, preview });
-      }
-      
-      stopCamera();
-      
-      // Play capture sound
-      playShutterSound();
-    }, 'image/jpeg', 0.95);
-  }, [step, stopCamera]);
-
-  const playShutterSound = () => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 1200;
-      oscillator.type = 'sine';
-      gainNode.gain.value = 0.15;
-      
-      oscillator.start();
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    } catch (e) {
-      // Audio not supported
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset input to allow reselecting same file
-    e.target.value = '';
-
-    const isValid = await validateImage(file);
-    if (!isValid) return;
-
-    const preview = URL.createObjectURL(file);
-    
-    if (step === 'rest') {
-      setRestImage({ file, preview });
-    } else {
-      setSmileImage({ file, preview });
-    }
-  };
-
-  const clearImage = (type: Step) => {
-    if (type === 'rest') {
-      if (restImage) URL.revokeObjectURL(restImage.preview);
-      setRestImage(null);
-    } else {
-      if (smileImage) URL.revokeObjectURL(smileImage.preview);
-      setSmileImage(null);
-    }
-  };
-
-  const uploadImages = async () => {
-    if (!restImage || !smileImage || !user) return;
+  const handleAnalyze = async () => {
+    if (!restPhoto || !smilePhoto || !user) return;
 
     setIsUploading(true);
 
     try {
+      // Upload rest image
       const restPath = `${user.id}/${Date.now()}-rest.jpg`;
       const { error: restError } = await supabase.storage
         .from('simetria-images')
-        .upload(restPath, restImage.file);
+        .upload(restPath, restPhoto.file);
 
       if (restError) throw restError;
 
+      // Upload smile image
       const smilePath = `${user.id}/${Date.now()}-smile.jpg`;
       const { error: smileError } = await supabase.storage
         .from('simetria-images')
-        .upload(smilePath, smileImage.file);
+        .upload(smilePath, smilePhoto.file);
 
       if (smileError) throw smileError;
 
+      // Get signed URLs
       const { data: restUrl } = await supabase.storage
         .from('simetria-images')
-        .createSignedUrl(restPath, 3600 * 24 * 7); // 7 days
+        .createSignedUrl(restPath, 3600 * 24 * 7);
 
       const { data: smileUrl } = await supabase.storage
         .from('simetria-images')
@@ -284,6 +92,7 @@ export default function Scan() {
         throw new Error('Error generando URLs');
       }
 
+      // Create analysis record
       const { data: analysis, error: analysisError } = await supabase
         .from('analyses')
         .insert({
@@ -308,7 +117,7 @@ export default function Scan() {
 
       toast({
         title: '¡Imágenes subidas!',
-        description: 'Procesando tu análisis...',
+        description: 'Procesando tu análisis con IA...',
       });
 
       navigate(`/result/${analysis.id}`);
@@ -325,17 +134,7 @@ export default function Scan() {
     }
   };
 
-  const handleRequirementsContinue = () => {
-    setShowRequirements(false);
-    // Auto-start camera for current photos
-    if (captureMode === 'current') {
-      startCamera();
-    }
-  };
-
-  const currentImage = step === 'rest' ? restImage : smileImage;
-
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -351,263 +150,268 @@ export default function Scan() {
         onContinue={handleRequirementsContinue}
       />
 
-      <div className="min-h-screen pt-4 pb-24">
-        <div className="container mx-auto px-4 max-w-lg">
-          {/* Mode selector */}
-          <div className="flex justify-center gap-2 mb-6">
-            <Button
-              variant={captureMode === 'current' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCaptureMode('current')}
-              className="gap-2"
-            >
-              <Camera className="w-4 h-4" />
-              Foto Actual
-            </Button>
-            <Button
-              variant={captureMode === 'historical' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCaptureMode('historical')}
-              className="gap-2"
-            >
-              <History className="w-4 h-4" />
-              Foto Histórica
-            </Button>
+      <div className="min-h-screen flex flex-col">
+        {/* Header */}
+        <header className="px-4 pt-6 pb-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <p className="text-xs text-primary font-medium">
+              Análisis estético dentofacial
+            </p>
           </div>
+          <h1 className="text-2xl font-display font-semibold">
+            Escanea tu rostro
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {currentMode === 'rest' 
+              ? 'Paso 1 · Rostro en reposo, labios cerrados'
+              : 'Paso 2 · Sonrisa natural mostrando dientes'}
+          </p>
+        </header>
 
-          {/* Progress Steps */}
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <motion.div 
-              className={`flex items-center gap-2 cursor-pointer transition-colors ${
-                step === 'rest' ? 'text-primary' : restImage ? 'text-green-500' : 'text-muted-foreground'
-              }`}
-              onClick={() => restImage && setStep('rest')}
-              whileTap={{ scale: 0.95 }}
-            >
-              {restImage ? (
-                <CheckCircle2 className="w-6 h-6" />
-              ) : (
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-medium ${
-                  step === 'rest' ? 'border-primary text-primary' : 'border-muted-foreground'
-                }`}>
-                  1
-                </div>
-              )}
-              <span className="text-sm font-medium">Reposo</span>
-            </motion.div>
-            
-            <div className="w-8 h-px bg-border" />
-            
-            <motion.div 
-              className={`flex items-center gap-2 ${
-                step === 'smile' ? 'text-primary' : smileImage ? 'text-green-500' : 'text-muted-foreground'
-              }`}
-            >
-              {smileImage ? (
-                <CheckCircle2 className="w-6 h-6" />
-              ) : (
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-medium ${
-                  step === 'smile' ? 'border-primary text-primary' : 'border-muted-foreground'
-                }`}>
-                  2
-                </div>
-              )}
-              <span className="text-sm font-medium">Sonrisa</span>
-            </motion.div>
-          </div>
-
-          {/* Instructions */}
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={step}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="text-center mb-4"
-            >
-              <h1 className="text-xl font-bold mb-1">
-                {step === 'rest' ? 'Foto en reposo' : 'Foto sonriendo'}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {step === 'rest' 
-                  ? 'Expresión neutra, labios relajados y cerrados.'
-                  : 'Sonrisa natural mostrando los dientes.'}
+        {/* Main content */}
+        <main className="flex-1 px-4 pb-28 space-y-4">
+          {/* Camera/Capture area */}
+          <section className="border border-border/50 rounded-3xl p-4 bg-card/30 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium">
+                {currentMode === "rest" ? "Foto en reposo" : "Foto sonriendo"}
               </p>
-            </motion.div>
-          </AnimatePresence>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowRequirements(true)}
+                className="text-xs h-7 px-2"
+              >
+                <Info className="w-3.5 h-3.5 mr-1" />
+                Requisitos
+              </Button>
+            </div>
 
-          {/* Info button */}
-          <div className="flex justify-center mb-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowRequirements(true)}
-              className="text-xs text-muted-foreground"
-            >
-              <Info className="w-4 h-4 mr-1" />
-              Ver requisitos
-            </Button>
-          </div>
-
-          {/* Capture Area */}
-          <motion.div 
-            className="aspect-[3/4] rounded-3xl overflow-hidden bg-muted mb-6 relative"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-          >
-            {isCapturing ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover scale-x-[-1]"
-                />
-                <FaceGuideOverlay 
-                  isActive={isCapturing} 
-                  onPositionValid={setPositionValid}
-                />
-              </>
-            ) : currentImage ? (
-              <>
-                <motion.img
-                  src={currentImage.preview}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                />
-                <button
-                  onClick={() => clearImage(step)}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors backdrop-blur-sm"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                <div className="absolute bottom-4 left-4 right-4">
-                  <div className="flex items-center justify-center gap-2 bg-green-500/20 backdrop-blur-md rounded-full py-2 px-4 border border-green-500/30">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    <span className="text-sm font-medium text-green-500">Foto capturada</span>
-                  </div>
+            {isCameraOpen ? (
+              <div className="space-y-3">
+                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover scale-x-[-1]"
+                    playsInline
+                    muted
+                    autoPlay
+                  />
+                  <FaceGuideOverlay isActive={true} />
                 </div>
-              </>
-            ) : cameraError ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-6">
-                <Camera className="w-16 h-16 mb-4 opacity-50 text-destructive" />
-                <p className="text-sm text-center text-destructive mb-4">{cameraError}</p>
-                <Button variant="outline" onClick={startCamera}>
-                  Reintentar
-                </Button>
-              </div>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                <Camera className="w-16 h-16 mb-4 opacity-50" />
-                <p className="text-sm">
-                  {captureMode === 'current' ? 'Captura una foto' : 'Sube una foto histórica'}
-                </p>
-              </div>
-            )}
-          </motion.div>
-
-          <canvas ref={canvasRef} className="hidden" />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          {/* Actions */}
-          <div className="space-y-3">
-            {isCapturing ? (
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={stopCamera}
-                >
-                  <X className="w-5 h-5 mr-2" />
-                  Cancelar
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={capturePhoto}
-                >
-                  <Camera className="w-5 h-5 mr-2" />
-                  Capturar
-                </Button>
-              </div>
-            ) : currentImage ? (
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => clearImage(step)}
-                >
-                  <RotateCcw className="w-5 h-5 mr-2" />
-                  Repetir
-                </Button>
-                {step === 'rest' ? (
+                <div className="flex gap-2">
                   <Button
-                    className="flex-1"
-                    onClick={() => setStep('smile')}
+                    onClick={captureFromCamera}
+                    disabled={isCapturing}
+                    className="flex-1 h-12"
                   >
-                    Siguiente
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                ) : restImage && smileImage ? (
-                  <Button
-                    className="flex-1"
-                    onClick={uploadImages}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
+                    {isCapturing ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        Analizar
-                        <ArrowRight className="w-5 h-5 ml-2" />
+                        <Camera className="w-5 h-5 mr-2" />
+                        Capturar
                       </>
                     )}
                   </Button>
-                ) : null}
+                  <Button
+                    onClick={stopCamera}
+                    variant="outline"
+                    className="h-12"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => fileInputRef.current?.click()}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={openCamera}
+                  className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 transition-colors"
                 >
-                  <Upload className="w-5 h-5 mr-2" />
-                  {captureMode === 'historical' ? 'Subir histórica' : 'Galería'}
-                </Button>
-                {captureMode === 'current' && (
-                  <Button
-                    className="flex-1"
-                    onClick={startCamera}
-                  >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Cámara
-                  </Button>
-                )}
+                  <Camera className="w-8 h-8 mb-2 text-primary" />
+                  <span className="font-medium">Tomar foto</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">Cámara frontal</span>
+                </button>
+
+                <label className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 cursor-pointer transition-colors">
+                  <Upload className="w-8 h-8 mb-2 text-accent" />
+                  <span className="font-medium">Subir imagen</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">Desde galería</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileInput(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
               </div>
             )}
-          </div>
 
-          {/* Bottom navigation */}
-          {step === 'smile' && !smileImage && restImage && (
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              onClick={() => setStep('rest')}
-              className="mt-4 text-sm text-primary hover:underline mx-auto block"
-            >
-              ← Volver a foto en reposo
-            </motion.button>
-          )}
-        </div>
+            {/* Error message */}
+            <AnimatePresence>
+              {cameraError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-2"
+                >
+                  <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-xs text-destructive">{cameraError}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          {/* Photo thumbnails */}
+          <section className="space-y-3">
+            <div className="flex gap-3">
+              {/* Rest photo thumbnail */}
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground">Reposo</p>
+                  {restPhoto && (
+                    <button 
+                      onClick={() => clearPhoto('rest')}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
+                <motion.div 
+                  className={`aspect-[3/4] rounded-xl border overflow-hidden flex items-center justify-center ${
+                    restPhoto 
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : currentMode === 'rest'
+                        ? 'border-primary/50 border-dashed bg-primary/5'
+                        : 'border-border/50 border-dashed bg-muted/30'
+                  }`}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => restPhoto && setCurrentMode('rest')}
+                >
+                  {restPhoto ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={restPhoto.preview}
+                        alt="Rostro en reposo"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-2 right-2">
+                        <CheckCircle2 className="w-6 h-6 text-green-500 drop-shadow-lg" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center px-2">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-1 ${
+                        currentMode === 'rest' ? 'bg-primary/20' : 'bg-muted'
+                      }`}>
+                        <span className="text-xs font-medium">1</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {currentMode === 'rest' ? 'Capturando...' : 'Pendiente'}
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+
+              {/* Smile photo thumbnail */}
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground">Sonrisa</p>
+                  {smilePhoto && (
+                    <button 
+                      onClick={() => clearPhoto('smile')}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
+                <motion.div 
+                  className={`aspect-[3/4] rounded-xl border overflow-hidden flex items-center justify-center ${
+                    smilePhoto 
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : currentMode === 'smile'
+                        ? 'border-primary/50 border-dashed bg-primary/5'
+                        : 'border-border/50 border-dashed bg-muted/30'
+                  }`}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {smilePhoto ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={smilePhoto.preview}
+                        alt="Rostro sonriendo"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-2 right-2">
+                        <CheckCircle2 className="w-6 h-6 text-green-500 drop-shadow-lg" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center px-2">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-1 ${
+                        currentMode === 'smile' ? 'bg-primary/20' : 'bg-muted'
+                      }`}>
+                        <span className="text-xs font-medium">2</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {currentMode === 'smile' ? 'Capturando...' : 'Pendiente'}
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="rounded-2xl bg-primary/5 border border-primary/10 px-4 py-3">
+              <p className="text-xs font-medium text-primary mb-1.5">
+                Para mejores resultados
+              </p>
+              <ol className="text-[11px] text-muted-foreground space-y-0.5">
+                <li>1 · Buena iluminación frontal, sin sombras</li>
+                <li>2 · Rostro centrado y recto, mirando a cámara</li>
+                <li>3 · Sin gafas, accesorios ni cabello cubriendo</li>
+                <li>4 · Fondo neutro y uniforme preferible</li>
+              </ol>
+            </div>
+          </section>
+        </main>
+
+        {/* Footer CTA */}
+        <footer className="fixed bottom-0 inset-x-0 border-t border-border/50 bg-background/95 backdrop-blur-md px-4 py-4 safe-area-pb">
+          <Button
+            disabled={!readyForAnalysis || isUploading}
+            className="w-full h-14 text-base font-semibold"
+            onClick={handleAnalyze}
+          >
+            {isUploading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Subiendo...
+              </>
+            ) : readyForAnalysis ? (
+              <>
+                <Sparkles className="w-5 h-5 mr-2" />
+                Analizar ahora
+              </>
+            ) : (
+              <>
+                Completa las 2 fotos
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </>
+            )}
+          </Button>
+        </footer>
       </div>
     </Layout>
   );
