@@ -1,46 +1,39 @@
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 const benefits = [
-  'Análisis facial y dental integrado con IA',
-  'Evaluación de armonía, simetría y sonrisa',
-  'Pre-simulación estética personalizada',
-  'Informe premium descargable en PDF',
+  'Análisis facial y dental con IA',
+  'Evaluación de simetría y sonrisa',
+  'Pre-simulación personalizada',
+  'Informe PDF descargable',
 ];
 
 export default function BenefitsSection() {
   return (
-    <section className="relative z-10 px-6 pb-16">
-      <div className="mx-auto max-w-md">
-        {/* What You Get */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            ¿Qué incluye tu análisis Simetría?
-          </h3>
-          
-          <ul className="space-y-3">
-            {benefits.map((benefit, index) => (
-              <li 
-                key={index}
-                className="flex items-start gap-3 text-white/80"
-              >
-                <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">{benefit}</span>
-              </li>
-            ))}
-          </ul>
+    <section className="relative z-10 px-6 py-20">
+      <div className="mx-auto max-w-sm text-center">
+        {/* Title */}
+        <h3 className="text-lg font-medium text-white mb-8">
+          ¿Qué incluye?
+        </h3>
+        
+        {/* Benefits - minimal grid */}
+        <div className="grid grid-cols-2 gap-4 mb-10">
+          {benefits.map((benefit, index) => (
+            <div 
+              key={index}
+              className="flex items-center gap-2 text-left"
+            >
+              <Check className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs text-white/70">{benefit}</span>
+            </div>
+          ))}
+        </div>
 
-          {/* Pricing */}
-          <div className="mt-6 pt-5 border-t border-white/10">
-            <p className="text-center">
-              <span className="text-xl font-semibold text-white">
-                Informe premium desde $5.900 CLP
-              </span>
-            </p>
-            <p className="text-center text-xs text-white/50 mt-1">
-              Evaluación clínica opcional, abonable a tratamiento
-            </p>
-          </div>
+        {/* Pricing - simple */}
+        <div className="inline-block rounded-full bg-white/5 border border-white/10 px-6 py-3">
+          <span className="text-sm font-medium text-white">
+            Desde $5.900 CLP
+          </span>
         </div>
       </div>
     </section>
