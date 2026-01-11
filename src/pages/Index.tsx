@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from 'react';
 import HeroContent from '@/components/HeroContent';
+import BenefitsSection from '@/components/BenefitsSection';
 import SplashScreen from '@/components/SplashScreen';
 
 // Lazy load the heavy 3D scene
@@ -32,6 +33,9 @@ const Index = () => {
 
         {/* Hero Content */}
         <HeroContent />
+        
+        {/* Benefits & Pricing */}
+        <BenefitsSection />
       </main>
     </>
   );
