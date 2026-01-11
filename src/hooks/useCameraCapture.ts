@@ -7,6 +7,7 @@ interface UseCameraCaptureOptions {
   minWidth?: number;
   minHeight?: number;
   autoCapture?: boolean;
+  requireFaceDetection?: boolean;
   onCountdownStart?: () => void;
   onCountdownTick?: (count: number) => void;
 }
@@ -16,12 +17,19 @@ interface CaptureResult {
   preview: string;
 }
 
+interface FaceDetectionResult {
+  detected: boolean;
+  centered: boolean;
+  goodSize: boolean;
+}
+
 export function useCameraCapture(options?: UseCameraCaptureOptions) {
   const {
     maxFileSizeMB = 10,
     minWidth = 640,
     minHeight = 800,
     autoCapture = true,
+    requireFaceDetection = true,
     onCountdownStart,
     onCountdownTick,
   } = options || {};
@@ -29,7 +37,9 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownRef = useRef<number | null>(null);
-  const autoValidRef = useRef<number | null>(null);
+  const faceDetectionRef = useRef<number | null>(null);
+  const faceDetectorRef = useRef<any>(null);
+  const consecutiveDetectionsRef = useRef<number>(0);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -37,19 +47,44 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isPositionValid, setIsPositionValid] = useState(false);
   const [validationProgress, setValidationProgress] = useState(0);
+  const [faceDetectionSupported, setFaceDetectionSupported] = useState(true);
 
   const [restPhoto, setRestPhoto] = useState<CaptureResult | null>(null);
   const [smilePhoto, setSmilePhoto] = useState<CaptureResult | null>(null);
   const [currentMode, setCurrentMode] = useState<CaptureMode>("rest");
+
+  // Initialize face detector
+  useEffect(() => {
+    const initFaceDetector = async () => {
+      // Check if FaceDetector API is available (Chrome/Edge)
+      if ('FaceDetector' in window) {
+        try {
+          faceDetectorRef.current = new (window as any).FaceDetector({
+            fastMode: true,
+            maxDetectedFaces: 1,
+          });
+          console.log('FaceDetector API initialized');
+        } catch (e) {
+          console.warn('FaceDetector init failed:', e);
+          setFaceDetectionSupported(false);
+        }
+      } else {
+        console.warn('FaceDetector API not available');
+        setFaceDetectionSupported(false);
+      }
+    };
+    
+    initFaceDetector();
+  }, []);
 
   const stopCamera = useCallback(() => {
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
       countdownRef.current = null;
     }
-    if (autoValidRef.current) {
-      clearInterval(autoValidRef.current);
-      autoValidRef.current = null;
+    if (faceDetectionRef.current) {
+      cancelAnimationFrame(faceDetectionRef.current);
+      faceDetectionRef.current = null;
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -57,6 +92,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     setCountdown(null);
     setIsPositionValid(false);
     setValidationProgress(0);
+    consecutiveDetectionsRef.current = 0;
   }, []);
 
   const openCamera = useCallback(async () => {
@@ -74,7 +110,6 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
           await videoRef.current.play();
           setIsCameraOpen(true);
         } catch (e) {
-          // On mobile Safari/Chrome this can still require a user gesture.
           setIsCameraOpen(true);
         }
       } else {
@@ -88,7 +123,6 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
         const videos = devices.filter((d) => d.kind === "videoinput");
         if (!videos.length) return null;
 
-        // Heuristics: prefer labels that indicate front/selfie.
         const preferred = videos.find((d) =>
           /front|user|facetime|selfie/i.test(d.label)
         );
@@ -99,17 +133,17 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     };
 
     try {
-      // 1) First attempt: ask explicitly for selfie camera.
+      // 1) First attempt: ask explicitly for selfie camera
       let stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "user",
+          facingMode: { ideal: "user" },
           width: { ideal: 1280 },
           height: { ideal: 1920 },
         },
         audio: false,
       });
 
-      // 2) If browser still gave us the rear camera, restart using deviceId.
+      // 2) If browser still gave us the rear camera, restart using deviceId
       const track = stream.getVideoTracks()[0];
       const settings = track?.getSettings?.() || {};
       const label = track?.label || "";
@@ -129,7 +163,6 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
             audio: false,
           });
         } else {
-          // Fallback back to facingMode user again
           stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "user" },
             audio: false,
@@ -193,7 +226,6 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   }, []);
 
   const playCountdownTick = useCallback((count: number) => {
-    // Higher pitch for final count
     const freq = count === 1 ? 880 : 660;
     playSound(freq, 0.1, 0.2);
   }, [playSound]);
@@ -253,9 +285,9 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
       if (currentMode === "rest") {
         setRestPhoto({ file, preview });
         setCurrentMode("smile");
-        // Reset validation for next photo
         setIsPositionValid(false);
         setValidationProgress(0);
+        consecutiveDetectionsRef.current = 0;
       } else {
         setSmilePhoto({ file, preview });
         stopCamera();
@@ -269,9 +301,8 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     }
   }, [currentMode, playShutterSound, stopCamera]);
 
-  // Start countdown when position is valid
   const startCountdown = useCallback(() => {
-    if (countdownRef.current) return; // Already counting
+    if (countdownRef.current) return;
     
     onCountdownStart?.();
     let count = 3;
@@ -291,13 +322,11 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
           clearInterval(countdownRef.current);
           countdownRef.current = null;
         }
-        // Auto capture
         captureFromCamera();
       }
     }, 1000);
   }, [captureFromCamera, onCountdownStart, onCountdownTick, playCountdownTick]);
 
-  // Cancel countdown
   const cancelCountdown = useCallback(() => {
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
@@ -306,46 +335,117 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     setCountdown(null);
   }, []);
 
-  // Handle position validation from face guide
-  const handlePositionValidation = useCallback((isValid: boolean) => {
-    setIsPositionValid(isValid);
+  // Analyze face position in frame
+  const analyzeFacePosition = useCallback((
+    face: any,
+    videoWidth: number,
+    videoHeight: number
+  ): FaceDetectionResult => {
+    const box = face.boundingBox;
     
-    if (isValid && autoCapture && isCameraOpen && !countdown && !isCapturing) {
-      // Position is valid, start countdown
-      startCountdown();
-    } else if (!isValid && countdown) {
-      // Position lost, cancel countdown
-      cancelCountdown();
-    }
-  }, [autoCapture, isCameraOpen, countdown, isCapturing, startCountdown, cancelCountdown]);
+    // Calculate face center
+    const faceCenterX = box.x + box.width / 2;
+    const faceCenterY = box.y + box.height / 2;
+    
+    // Calculate frame center
+    const frameCenterX = videoWidth / 2;
+    const frameCenterY = videoHeight / 2;
+    
+    // Check if face is centered (within 15% of center)
+    const toleranceX = videoWidth * 0.15;
+    const toleranceY = videoHeight * 0.15;
+    const centered = 
+      Math.abs(faceCenterX - frameCenterX) < toleranceX &&
+      Math.abs(faceCenterY - frameCenterY) < toleranceY;
+    
+    // Check face size (should be between 25% and 60% of frame)
+    const faceArea = (box.width * box.height) / (videoWidth * videoHeight);
+    const goodSize = faceArea > 0.08 && faceArea < 0.5;
+    
+    return {
+      detected: true,
+      centered,
+      goodSize,
+    };
+  }, []);
 
-  // Simulate position validation progress (for demo - in production use face detection)
+  // Real face detection loop
   useEffect(() => {
-    if (!isCameraOpen || !autoCapture) return;
+    if (!isCameraOpen || !videoRef.current || isCapturing || countdown !== null) return;
+    
+    const video = videoRef.current;
+    let isRunning = true;
 
-    let progress = 0;
-    autoValidRef.current = window.setInterval(() => {
-      progress += Math.random() * 15 + 5;
-      if (progress >= 100) {
-        progress = 100;
-        setValidationProgress(100);
-        setIsPositionValid(true);
-        if (autoValidRef.current) {
-          clearInterval(autoValidRef.current);
-          autoValidRef.current = null;
+    const detectFace = async () => {
+      if (!isRunning || !video || video.readyState < 2) {
+        if (isRunning) {
+          faceDetectionRef.current = requestAnimationFrame(detectFace);
         }
-      } else {
-        setValidationProgress(Math.min(progress, 99));
+        return;
       }
-    }, 800);
 
-    return () => {
-      if (autoValidRef.current) {
-        clearInterval(autoValidRef.current);
-        autoValidRef.current = null;
+      try {
+        // Use FaceDetector API if available
+        if (faceDetectorRef.current && faceDetectionSupported) {
+          const faces = await faceDetectorRef.current.detect(video);
+          
+          if (faces.length > 0) {
+            const result = analyzeFacePosition(
+              faces[0],
+              video.videoWidth,
+              video.videoHeight
+            );
+            
+            if (result.detected && result.centered && result.goodSize) {
+              consecutiveDetectionsRef.current++;
+              
+              // Need 5 consecutive good detections (about 0.5 seconds)
+              const progress = Math.min((consecutiveDetectionsRef.current / 5) * 100, 100);
+              setValidationProgress(progress);
+              
+              if (consecutiveDetectionsRef.current >= 5) {
+                setIsPositionValid(true);
+              }
+            } else {
+              // Reset if position is bad
+              consecutiveDetectionsRef.current = Math.max(0, consecutiveDetectionsRef.current - 2);
+              setValidationProgress(Math.max(0, (consecutiveDetectionsRef.current / 5) * 100));
+              setIsPositionValid(false);
+            }
+          } else {
+            // No face detected
+            consecutiveDetectionsRef.current = 0;
+            setValidationProgress(0);
+            setIsPositionValid(false);
+          }
+        } else if (!requireFaceDetection) {
+          // Fallback: allow capture without face detection
+          setValidationProgress(100);
+          setIsPositionValid(true);
+        }
+      } catch (e) {
+        console.warn('Face detection error:', e);
+      }
+
+      if (isRunning) {
+        faceDetectionRef.current = requestAnimationFrame(detectFace);
       }
     };
-  }, [isCameraOpen, autoCapture, currentMode]);
+
+    // Start detection loop with a small delay to let video initialize
+    const timeoutId = setTimeout(() => {
+      faceDetectionRef.current = requestAnimationFrame(detectFace);
+    }, 500);
+
+    return () => {
+      isRunning = false;
+      clearTimeout(timeoutId);
+      if (faceDetectionRef.current) {
+        cancelAnimationFrame(faceDetectionRef.current);
+        faceDetectionRef.current = null;
+      }
+    };
+  }, [isCameraOpen, isCapturing, countdown, faceDetectionSupported, requireFaceDetection, analyzeFacePosition]);
 
   // Auto-start countdown when position becomes valid
   useEffect(() => {
@@ -393,9 +493,9 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
       setSmilePhoto(null);
       setCurrentMode("smile");
     }
-    // Reset validation
     setIsPositionValid(false);
     setValidationProgress(0);
+    consecutiveDetectionsRef.current = 0;
   }, [restPhoto, smilePhoto]);
 
   const reset = useCallback(() => {
@@ -407,6 +507,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     setError(null);
     setIsPositionValid(false);
     setValidationProgress(0);
+    consecutiveDetectionsRef.current = 0;
     stopCamera();
   }, [restPhoto, smilePhoto, stopCamera]);
 
@@ -429,6 +530,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     countdown,
     isPositionValid,
     validationProgress,
+    faceDetectionSupported,
     openCamera,
     stopCamera,
     captureFromCamera,
@@ -436,7 +538,6 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     clearPhoto,
     reset,
     setCurrentMode,
-    handlePositionValidation,
     cancelCountdown,
     readyForAnalysis: !!restPhoto && !!smilePhoto,
   };

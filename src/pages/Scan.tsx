@@ -36,6 +36,7 @@ export default function Scan() {
     countdown,
     isPositionValid,
     validationProgress,
+    faceDetectionSupported,
     openCamera,
     stopCamera,
     captureFromCamera,
@@ -44,7 +45,7 @@ export default function Scan() {
     readyForAnalysis,
     setCurrentMode,
     cancelCountdown,
-  } = useCameraCapture({ minWidth: 480, minHeight: 640, autoCapture: true });
+  } = useCameraCapture({ minWidth: 480, minHeight: 640, autoCapture: true, requireFaceDetection: true });
 
   const [isUploading, setIsUploading] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
@@ -212,6 +213,7 @@ export default function Scan() {
                     validationProgress={validationProgress}
                     isPositionValid={isPositionValid}
                     captureMode={currentMode}
+                    faceDetectionSupported={faceDetectionSupported}
                   />
                 </div>
                 <div className="flex gap-2">
