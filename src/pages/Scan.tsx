@@ -183,6 +183,9 @@ export default function Scan() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input para permitir seleccionar el mismo archivo
+    e.target.value = '';
+
     const isValid = await validateImage(file);
     if (!isValid) return;
 
@@ -378,7 +381,8 @@ export default function Scan() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png"
+            accept="image/jpeg,image/png,image/*"
+            capture="user"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -413,7 +417,7 @@ export default function Scan() {
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Repetir
                 </Button>
-                {step === 'rest' && !smileImage ? (
+                {step === 'rest' ? (
                   <Button
                     className="flex-1"
                     onClick={() => setStep('smile')}
