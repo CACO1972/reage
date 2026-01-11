@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCameraCapture } from '@/hooks/useCameraCapture';
-import { FaceGuideOverlay } from '@/components/FaceGuideOverlay';
 import { PhotoRequirementsModal } from '@/components/PhotoRequirementsModal';
 import {
   Camera,
@@ -33,10 +32,6 @@ export default function Scan() {
     restPhoto,
     smilePhoto,
     currentMode,
-    countdown,
-    isPositionValid,
-    validationProgress,
-    faceDetectionSupported,
     openCamera,
     stopCamera,
     captureFromCamera,
@@ -44,8 +39,7 @@ export default function Scan() {
     clearPhoto,
     readyForAnalysis,
     setCurrentMode,
-    cancelCountdown,
-  } = useCameraCapture({ minWidth: 480, minHeight: 640, autoCapture: true, requireFaceDetection: true });
+  } = useCameraCapture({ minWidth: 480, minHeight: 640 });
 
   const [isUploading, setIsUploading] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
@@ -207,44 +201,56 @@ export default function Scan() {
                     muted
                     autoPlay
                   />
-                  <FaceGuideOverlay 
-                    isActive={true} 
-                    countdown={countdown}
-                    validationProgress={validationProgress}
-                    isPositionValid={isPositionValid}
-                    captureMode={currentMode}
-                    faceDetectionSupported={faceDetectionSupported}
-                  />
+                  {/* Simple face guide overlay */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Oval guide */}
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+                      <defs>
+                        <mask id="ovalMask">
+                          <rect x="0" y="0" width="100" height="100" fill="white"/>
+                          <ellipse cx="50" cy="45" rx="22" ry="30" fill="black"/>
+                        </mask>
+                      </defs>
+                      <rect x="0" y="0" width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#ovalMask)"/>
+                      <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="#d4a853" strokeWidth="0.5"/>
+                    </svg>
+                    
+                    {/* Instructions */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="text-center text-xs text-white/80 bg-black/40 rounded-lg px-3 py-2 backdrop-blur-sm">
+                        {currentMode === 'rest' 
+                          ? 'Rostro relajado • Labios cerrados'
+                          : 'Sonrisa natural • Muestra los dientes'
+                        }
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      cancelCountdown();
-                      captureFromCamera();
-                    }}
-                    disabled={isCapturing}
-                    className="flex-1 h-12"
-                  >
-                    {isCapturing ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Camera className="w-5 h-5 mr-2" />
-                        Capturar
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      cancelCountdown();
-                      stopCamera();
-                    }}
-                    variant="outline"
-                    className="h-12"
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
+                
+                {/* Capture button - prominent */}
+                <Button
+                  onClick={captureFromCamera}
+                  disabled={isCapturing}
+                  className="w-full h-14 text-base font-semibold"
+                  variant="hero"
+                >
+                  {isCapturing ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-5 h-5 mr-2" />
+                      Capturar {currentMode === 'rest' ? 'reposo' : 'sonrisa'}
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={stopCamera}
+                  variant="ghost"
+                  className="w-full"
+                >
+                  Cancelar
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
