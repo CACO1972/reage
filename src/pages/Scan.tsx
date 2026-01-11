@@ -68,11 +68,12 @@ export default function Scan() {
         return;
       }
 
-      // Check resolution
+      // Check resolution - more flexible for camera captures
       const img = new Image();
       img.onload = () => {
-        const minRes = 1200;
-        const maxRes = 3000;
+        URL.revokeObjectURL(img.src);
+        const minRes = 480; // Reducido para capturas de cámara
+        const maxRes = 4096; // Aumentado para cámaras modernas
         
         if (img.width < minRes || img.height < minRes) {
           toast({
@@ -96,7 +97,10 @@ export default function Scan() {
 
         resolve(true);
       };
-      img.onerror = () => resolve(false);
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        resolve(false);
+      };
       img.src = URL.createObjectURL(file);
     });
   };
@@ -104,19 +108,28 @@ export default function Scan() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1920 } }
+        video: { 
+          facingMode: 'user', 
+          width: { ideal: 1280, min: 640 }, 
+          height: { ideal: 720, min: 480 } 
+        }
       });
       setCameraStream(stream);
       setIsCapturing(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Esperar a que el video esté listo
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+        };
       }
     } catch (error) {
+      console.error('Camera error:', error);
       toast({
         variant: 'destructive',
         title: 'Error de cámara',
-        description: 'No se pudo acceder a la cámara.',
+        description: 'No se pudo acceder a la cámara. Verifica los permisos.',
       });
     }
   };
@@ -135,13 +148,20 @@ export default function Scan() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Usar dimensiones reales del video
+    const videoWidth = video.videoWidth || 1280;
+    const videoHeight = video.videoHeight || 720;
+    
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
     
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    ctx.drawImage(video, 0, 0);
+    // Espejear horizontalmente para selfie natural
+    ctx.translate(videoWidth, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
     
     canvas.toBlob(async (blob) => {
       if (!blob) return;
@@ -156,7 +176,7 @@ export default function Scan() {
       }
       
       stopCamera();
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.92);
   }, [step]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -325,7 +345,7 @@ export default function Scan() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover scale-x-[-1]"
                 />
                 {/* Face guide overlay */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
