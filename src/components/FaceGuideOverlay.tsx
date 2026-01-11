@@ -8,6 +8,7 @@ interface FaceGuideOverlayProps {
   validationProgress: number;
   isPositionValid: boolean;
   captureMode: 'rest' | 'smile';
+  faceDetectionSupported?: boolean;
 }
 
 type FeedbackType = 'center' | 'distance' | 'tilt' | 'lighting';
@@ -24,7 +25,8 @@ export function FaceGuideOverlay({
   countdown,
   validationProgress,
   isPositionValid,
-  captureMode
+  captureMode,
+  faceDetectionSupported = true
 }: FaceGuideOverlayProps) {
   const feedbackItems: FeedbackItem[] = useMemo(() => {
     const progress = validationProgress;
@@ -294,10 +296,13 @@ export function FaceGuideOverlay({
       {/* Instructions overlay */}
       <div className="absolute bottom-4 left-4 right-4">
         <div className="text-center text-xs text-white/70 bg-black/30 rounded-lg px-3 py-2 backdrop-blur-sm">
-          {captureMode === 'rest' 
-            ? 'Rostro relajado • Labios cerrados • Mirada al frente'
-            : 'Sonrisa natural • Muestra los dientes • Ojos abiertos'
-          }
+          {!faceDetectionSupported ? (
+            <span className="text-amber-400">Tu navegador no soporta detección facial automática. Usa el botón Capturar.</span>
+          ) : captureMode === 'rest' ? (
+            'Rostro relajado • Labios cerrados • Mirada al frente'
+          ) : (
+            'Sonrisa natural • Muestra los dientes • Ojos abiertos'
+          )}
         </div>
       </div>
     </div>
