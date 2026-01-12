@@ -12,11 +12,11 @@ const emailSchema = z.string().email('Email inválido');
 const passwordSchema = z.string().min(6, 'Mínimo 6 caracteres');
 
 export default function Auth() {
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -60,19 +60,6 @@ export default function Auth() {
           throw error;
         }
         navigate('/dashboard');
-      } else {
-        const { error } = await signUp(email, password);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            throw new Error('Este email ya está registrado');
-          }
-          throw error;
-        }
-        toast({
-          title: '¡Cuenta creada!',
-          description: 'Ya puedes comenzar tu análisis.',
-        });
-        navigate('/scan');
       }
     } catch (error: any) {
       toast({
@@ -101,22 +88,9 @@ export default function Auth() {
 
         {/* Form Card */}
         <div className="glass rounded-3xl p-8 shadow-xl animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="flex gap-2 mb-6">
-            <Button
-              variant={mode === 'login' ? 'default' : 'ghost'}
-              className="flex-1"
-              onClick={() => setMode('login')}
-            >
-              Iniciar Sesión
-            </Button>
-            <Button
-              variant={mode === 'signup' ? 'default' : 'ghost'}
-              className="flex-1"
-              onClick={() => setMode('signup')}
-            >
-              Registrarse
-            </Button>
-          </div>
+          <h2 className="text-xl font-semibold text-center mb-6">
+            {mode === 'login' ? 'Iniciar Sesión' : 'Recuperar Contraseña'}
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -174,7 +148,7 @@ export default function Auth() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear Cuenta' : 'Recuperar Clave'}
+                  {mode === 'login' ? 'Entrar' : 'Recuperar Clave'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
