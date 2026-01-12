@@ -17,6 +17,7 @@ import { ExtendedMetrics } from '@/components/ExtendedMetrics';
 import { PremiumReport } from '@/components/PremiumReport';
 import { CouponQR } from '@/components/CouponQR';
 import { ShareReward } from '@/components/ShareReward';
+import { SkinAnalysisCard } from '@/components/SkinAnalysisCard';
 import ClinicaCTA from '@/components/ClinicaCTA';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
@@ -27,8 +28,21 @@ import {
   Box,
   CheckCircle,
   TrendingUp,
-  Brain
+  Brain,
+  Droplets
 } from 'lucide-react';
+
+interface SkinAnalysisData {
+  overall_score?: number;
+  wrinkle_score?: number;
+  spots_score?: number;
+  texture_score?: number;
+  dark_circles_score?: number;
+  redness_score?: number;
+  pores_score?: number;
+  oiliness_score?: number;
+  skin_age?: number;
+}
 
 interface Analysis {
   id: string;
@@ -44,6 +58,12 @@ interface Analysis {
   gingival_display_mm: number | null;
   buccal_corridor_left: number | null;
   buccal_corridor_right: number | null;
+  raw_ai_payload?: {
+    perfect_corp?: {
+      skin_analysis?: SkinAnalysisData;
+      api_success?: boolean;
+    };
+  } | null;
 }
 
 interface UserCoupon {
@@ -394,7 +414,18 @@ export default function Result() {
                 />
               </motion.div>
 
-              {/* Treatment Suggestions (2 free + locked) */}
+              {/* Skin Analysis - Perfect Corp Results */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.95 }}
+              >
+                <SkinAnalysisCard 
+                  skinData={analysis.raw_ai_payload?.perfect_corp?.skin_analysis || null}
+                  isLocked={!isPremium}
+                />
+              </motion.div>
+
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

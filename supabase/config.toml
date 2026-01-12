@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.create-3d-model]
 verify_jwt = false
 
+[functions.get-3d-model-status]
+verify_jwt = false
+
 [functions.create-flow-payment]
 verify_jwt = false
 
@@ -16,4 +19,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.elevenlabs-ambient]
+verify_jwt = false
+
+[functions.generate-smile-simulation]
 verify_jwt = false
