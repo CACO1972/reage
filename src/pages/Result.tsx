@@ -10,6 +10,7 @@ import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
 import { Model3DPreview } from '@/components/Model3DPreview';
 import { AIInsightCard } from '@/components/AIInsightCard';
 import { SmileSimulation } from '@/components/SmileSimulation';
+import { ScanningAnimation } from '@/components/ScanningAnimation';
 import { TreatmentSuggestions } from '@/components/TreatmentSuggestions';
 import { PremiumContentPreview } from '@/components/PremiumContentPreview';
 import { ExtendedMetrics } from '@/components/ExtendedMetrics';
@@ -49,16 +50,6 @@ interface UserCoupon {
   discount_percent: number;
   original_value: number;
   expires_at: string | null;
-}
-
-function LoadingSection() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
-      <p className="text-muted-foreground">Analizando tu rostro...</p>
-      <p className="text-xs text-muted-foreground mt-1">Esto puede tomar unos segundos</p>
-    </div>
-  );
 }
 
 function getSmileInsight(score: number, midline: number, gingival: number): string {
@@ -285,7 +276,17 @@ export default function Result() {
           </motion.div>
 
           {!hasAllData ? (
-            <LoadingSection />
+            /* Scanning animation while analyzing */
+            analysis.frontal_smile_url ? (
+              <ScanningAnimation imageUrl={analysis.frontal_smile_url} />
+            ) : analysis.frontal_rest_url ? (
+              <ScanningAnimation imageUrl={analysis.frontal_rest_url} />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
+                <p className="text-muted-foreground">Cargando imágenes...</p>
+              </div>
+            )
           ) : (
             <div className="space-y-10">
               {/* Hero Scores */}
