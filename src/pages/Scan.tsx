@@ -30,6 +30,7 @@ export default function Scan() {
     videoRef,
     fileInputRef,
     isCameraOpen,
+    isRequestingCamera,
     isProcessing,
     error: cameraError,
     lowResWarning,
@@ -201,7 +202,7 @@ export default function Scan() {
         <main className="flex-1 px-4 pb-28 space-y-4">
           {/* Camera/Photo area */}
           <section className="relative">
-            {isCameraOpen ? (
+            {(isCameraOpen || isRequestingCamera) ? (
               <div className="space-y-3">
                 <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
                   <video
@@ -212,60 +213,76 @@ export default function Scan() {
                     autoPlay
                   />
                   
-                  {/* Face guide overlay */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
-                      <defs>
-                        <mask id="ovalMask">
-                          <rect x="0" y="0" width="100" height="100" fill="white"/>
-                          <ellipse cx="50" cy="45" rx="22" ry="30" fill="black"/>
-                        </mask>
-                      </defs>
-                      <rect x="0" y="0" width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#ovalMask)"/>
-                      <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="#d4a853" strokeWidth="0.5"/>
-                      {/* Corner brackets */}
-                      <path d="M 25 18 L 25 14 L 30 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                      <path d="M 75 18 L 75 14 L 70 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                      <path d="M 25 76 L 25 80 L 30 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                      <path d="M 75 76 L 75 80 L 70 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                    </svg>
-                  </div>
+                  {/* Loading overlay when requesting camera */}
+                  {isRequestingCamera && !isCameraOpen && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                      <div className="text-center space-y-3">
+                        <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                        <p className="text-sm text-muted-foreground">Solicitando cámara...</p>
+                      </div>
+                    </div>
+                  )}
                   
-                  {/* Tips bar */}
-                  <div className="absolute top-3 left-3 right-3 flex justify-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                      <Sun className="w-3 h-3" />
-                      Luz frontal
+                  {/* Face guide overlay - only show when camera is open */}
+                  {isCameraOpen && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+                        <defs>
+                          <mask id="ovalMask">
+                            <rect x="0" y="0" width="100" height="100" fill="white"/>
+                            <ellipse cx="50" cy="45" rx="22" ry="30" fill="black"/>
+                          </mask>
+                        </defs>
+                        <rect x="0" y="0" width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#ovalMask)"/>
+                        <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="#d4a853" strokeWidth="0.5"/>
+                        {/* Corner brackets */}
+                        <path d="M 25 18 L 25 14 L 30 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
+                        <path d="M 75 18 L 75 14 L 70 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
+                        <path d="M 25 76 L 25 80 L 30 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
+                        <path d="M 75 76 L 75 80 L 70 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
+                      </svg>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                      <User className="w-3 h-3" />
-                      Centrado
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                      <Glasses className="w-3 h-3" />
-                      Sin lentes
-                    </div>
-                  </div>
+                  )}
                   
-                  {/* Current step instruction */}
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="text-center text-xs text-white/90 bg-black/50 rounded-lg px-3 py-2 backdrop-blur-sm">
-                      {currentMode === 'rest' 
-                        ? '😐 Rostro relajado • Labios cerrados'
-                        : '😁 Sonrisa natural • Muestra los dientes'
-                      }
+                  {/* Tips bar - only show when camera is open */}
+                  {isCameraOpen && (
+                    <div className="absolute top-3 left-3 right-3 flex justify-center gap-2">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
+                        <Sun className="w-3 h-3" />
+                        Luz frontal
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
+                        <User className="w-3 h-3" />
+                        Centrado
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
+                        <Glasses className="w-3 h-3" />
+                        Sin lentes
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {/* Current step instruction - only show when camera is open */}
+                  {isCameraOpen && (
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="text-center text-xs text-white/90 bg-black/50 rounded-lg px-3 py-2 backdrop-blur-sm">
+                        {currentMode === 'rest' 
+                          ? '😐 Rostro relajado • Labios cerrados'
+                          : '😁 Sonrisa natural • Muestra los dientes'
+                        }
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
-                {/* Capture button */}
+                {/* Capture button - only enable when camera is fully open */}
                 <Button
                   onClick={captureFromCamera}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !isCameraOpen}
                   className="w-full h-14 text-base font-semibold"
                   variant="hero"
                 >
-                  {isProcessing ? (
+                  {(isProcessing || isRequestingCamera) ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
@@ -279,6 +296,7 @@ export default function Scan() {
                   onClick={stopCamera}
                   variant="ghost"
                   className="w-full"
+                  disabled={isRequestingCamera && !isCameraOpen}
                 >
                   Cancelar
                 </Button>
