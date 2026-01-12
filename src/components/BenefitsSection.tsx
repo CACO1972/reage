@@ -235,10 +235,10 @@ export default function BenefitsSection() {
       <div className="mx-auto max-w-lg text-center">
         {/* Title */}
         <div className="mb-10">
-          <span className="inline-block text-[10px] font-medium text-primary/80 uppercase tracking-[0.2em] mb-2">
+          <span className="inline-block text-sm font-medium text-primary uppercase tracking-[0.2em] mb-3">
             Incluido
           </span>
-          <h3 className="text-xl font-display font-semibold text-white">
+          <h3 className="text-2xl md:text-3xl font-display font-semibold text-white">
             ¿Qué obtienes?
           </h3>
         </div>
@@ -246,17 +246,17 @@ export default function BenefitsSection() {
         {/* Two-tier pricing */}
         <div className="grid gap-6 mb-10">
           {/* Free Tier */}
-          <div className="rounded-2xl bg-white/5 border border-white/10 p-5 text-left">
-            <div className="flex items-center gap-2 mb-4">
-              <Gift className="w-5 h-5 text-emerald-400" />
-              <span className="text-sm font-medium text-emerald-400">Análisis Gratis</span>
-              <span className="ml-auto text-lg font-semibold text-white">$0</span>
+          <div className="rounded-2xl bg-white/5 border border-white/10 p-6 text-left">
+            <div className="flex items-center gap-3 mb-5">
+              <Gift className="w-6 h-6 text-emerald-400" />
+              <span className="text-lg font-semibold text-emerald-400">Análisis Gratis</span>
+              <span className="ml-auto text-xl font-bold text-white">$0</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {freeBenefits.map((benefit, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-white/40 shrink-0" />
-                  <span className="text-xs text-white/60">{benefit}</span>
+                <div key={index} className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-emerald-400/80 shrink-0" />
+                  <span className="text-base text-white/90">{benefit}</span>
                 </div>
               ))}
             </div>
@@ -264,57 +264,57 @@ export default function BenefitsSection() {
 
           {/* Premium Tier */}
           <div className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 p-6 text-left relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-medium px-3 py-1 rounded-bl-xl">
+            <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-semibold px-4 py-1.5 rounded-bl-xl">
               RECOMENDADO
             </div>
             
-            <div className="flex items-center gap-2 mb-6">
-              <Crown className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Análisis Premium</span>
-              <span className="ml-auto text-lg font-semibold text-white">$5.990</span>
+            <div className="flex items-center gap-3 mb-6">
+              <Crown className="w-6 h-6 text-primary" />
+              <span className="text-lg font-semibold text-primary">Análisis Premium</span>
+              <span className="ml-auto text-xl font-bold text-white">$5.990</span>
             </div>
 
             {/* All free benefits */}
-            <div className="mb-4 pb-4 border-b border-primary/20">
-              <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Todo lo gratis, más:</p>
+            <div className="mb-5 pb-4 border-b border-primary/20">
+              <p className="text-sm text-white/70 uppercase tracking-wider">Todo lo gratis, más:</p>
             </div>
 
             {/* Premium Features */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               {premiumFeatures.map((feature, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 shrink-0">
-                    <feature.icon className="w-4 h-4 text-primary" />
+                <div key={index} className="flex items-start gap-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 shrink-0">
+                    <feature.icon className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white/90">{feature.title}</p>
-                    <p className="text-[11px] text-white/50">{feature.description}</p>
+                    <p className="text-base font-semibold text-white">{feature.title}</p>
+                    <p className="text-sm text-white/70">{feature.description}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Demo Button */}
-            <div className="mt-6 pt-4 border-t border-primary/20">
+            <div className="mt-6 pt-5 border-t border-primary/20">
               <Button
                 variant="outline"
-                className="w-full border-primary/40 hover:bg-primary/10 text-primary"
+                className="w-full border-primary/40 hover:bg-primary/10 text-primary text-base py-5"
                 onClick={generateDemoPDF}
                 disabled={generating}
               >
                 {generating ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Generando...
                   </>
                 ) : (
                   <>
-                    <Eye className="w-4 h-4 mr-2" />
+                    <Eye className="w-5 h-5 mr-2" />
                     Ver Reporte Demo (PDF)
                   </>
                 )}
               </Button>
-              <p className="text-center text-[10px] text-white/40 mt-3">
+              <p className="text-center text-sm text-white/60 mt-4">
                 Pago único · Sin suscripciones · Resultados inmediatos
               </p>
             </div>
