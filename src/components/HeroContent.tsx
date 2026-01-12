@@ -25,53 +25,74 @@ export default function HeroContent() {
   return (
     <div className="relative z-10 flex min-h-[90vh] flex-col items-center justify-center px-6 text-center">
       {/* Logo */}
-      <div className="animate-fade-up mb-8">
+      <div className="animate-fade-up mb-6">
         <img 
           src={logoSimetria} 
           alt="Simetría" 
-          className="h-48 w-auto md:h-64"
+          className="h-40 w-auto md:h-56"
         />
       </div>
 
-      {/* Headline - Apple style: short & impactful */}
-      <h1 className="animate-fade-up font-display text-3xl font-semibold tracking-tight text-white md:text-4xl lg:text-5xl" style={{ animationDelay: '0.1s' }}>
-        Analiza tu rostro y sonrisa con IA
+      {/* Tagline - premium feel */}
+      <div className="animate-fade-up mb-4" style={{ animationDelay: '0.05s' }}>
+        <span className="inline-block rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-[11px] font-medium text-primary tracking-wide">
+          ANÁLISIS FACIAL CON INTELIGENCIA ARTIFICIAL
+        </span>
+      </div>
+
+      {/* Headline - impactful & emotional */}
+      <h1 className="animate-fade-up font-display text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl leading-[1.1]" style={{ animationDelay: '0.1s' }}>
+        Descubre el potencial
+        <br />
+        <span className="bg-gradient-to-r from-primary via-amber-400 to-primary bg-clip-text text-transparent">
+          de tu sonrisa
+        </span>
       </h1>
 
-      {/* Subheadline - minimal */}
-      <p className="animate-fade-up mt-4 max-w-sm text-base text-white/70 md:text-lg" style={{ animationDelay: '0.2s' }}>
-        Informe estético personalizado en minutos.
+      {/* Subheadline - value proposition */}
+      <p className="animate-fade-up mt-5 max-w-md text-base text-white/60 md:text-lg leading-relaxed" style={{ animationDelay: '0.2s' }}>
+        Obtén un análisis estético profesional de tu rostro y sonrisa.
+        <span className="text-white/80 font-medium"> Resultados en minutos.</span>
       </p>
 
-      {/* CTA Button - positioned clearly below text */}
+      {/* CTA Button */}
       <div className="animate-fade-up mt-10" style={{ animationDelay: '0.3s' }}>
         <Button 
           variant="hero" 
           size="lg" 
-          className="group"
+          className="group text-base px-8 py-6"
           onClick={handleCTA}
         >
-          Comenzar análisis
-          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+          Comenzar gratis
+          <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
         </Button>
       </div>
 
-      {/* Flow Steps - simple, below CTA */}
-      <div className="animate-fade-up mt-16 flex items-center gap-8" style={{ animationDelay: '0.4s' }}>
+      {/* Flow Steps */}
+      <div className="animate-fade-up mt-14 flex items-center gap-6 md:gap-10" style={{ animationDelay: '0.4s' }}>
         {flowSteps.map((step, index) => (
-          <div key={step.label} className="flex flex-col items-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 border border-white/10">
-              <step.icon className="h-5 w-5 text-white/60" />
+          <div key={step.label} className="flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-sm">
+              <step.icon className="h-6 w-6 text-white/50" />
             </div>
-            <span className="text-xs text-white/50">{step.label}</span>
+            <span className="text-xs font-medium text-white/40">{step.label}</span>
+            {index < flowSteps.length - 1 && (
+              <div className="absolute" style={{ marginLeft: '5rem' }}>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Microcopy */}
-      <p className="animate-fade-up mt-8 text-xs text-white/40" style={{ animationDelay: '0.5s' }}>
-        Informe gratis disponible · Premium desde $5.990
-      </p>
+      {/* Microcopy - trust signals */}
+      <div className="animate-fade-up mt-10 flex flex-col items-center gap-2" style={{ animationDelay: '0.5s' }}>
+        <p className="text-xs text-white/50">
+          ✨ <span className="text-emerald-400/80">Informe básico gratis</span> · Premium desde $5.990
+        </p>
+        <p className="text-[10px] text-white/30">
+          Sin suscripción · Pago único · Resultados inmediatos
+        </p>
+      </div>
     </div>
   );
 }
