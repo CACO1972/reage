@@ -2,7 +2,6 @@ import { Suspense, lazy, useState } from 'react';
 import HeroContent from '@/components/HeroContent';
 import BenefitsSection from '@/components/BenefitsSection';
 import TrustSection from '@/components/TrustSection';
-import ClinicaCTA from '@/components/ClinicaCTA';
 import SplashScreen from '@/components/SplashScreen';
 
 // Lazy load the heavy 3D scene
@@ -42,8 +41,12 @@ const Index = () => {
         {/* Trust & Credibility */}
         <TrustSection />
 
-        {/* Clínica Miro CTA */}
-        <ClinicaCTA />
+        {/* Footer CTA - Simpler, no clinic yet */}
+        <section className="relative z-10 px-6 py-12 text-center">
+          <p className="text-xs text-white/40">
+            💡 <span className="text-white/60">¿Quieres ir más allá?</span> El informe premium incluye 20% dcto. para evaluación presencial
+          </p>
+        </section>
       </main>
     </>
   );

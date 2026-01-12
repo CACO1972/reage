@@ -84,12 +84,15 @@ export default function HeroContent() {
         ))}
       </div>
 
-      {/* Microcopy - trust signals */}
+      {/* Microcopy - trust signals - clarify the funnel */}
       <div className="animate-fade-up mt-10 flex flex-col items-center gap-2" style={{ animationDelay: '0.5s' }}>
         <p className="text-xs text-white/50">
-          ✨ <span className="text-emerald-400/80">Informe básico gratis</span> · Premium desde $5.990
+          ✨ <span className="text-emerald-400/80">Paso 1: Análisis digital gratis</span>
         </p>
         <p className="text-[10px] text-white/30">
+          Luego: Informe Premium $5.990 → Evaluación Clínica con 20% dcto.
+        </p>
+        <p className="text-[10px] text-white/40 mt-1">
           Sin suscripción · Pago único · Resultados inmediatos
         </p>
       </div>

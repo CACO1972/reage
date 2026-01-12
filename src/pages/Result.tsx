@@ -16,6 +16,8 @@ import { PremiumContentPreview } from '@/components/PremiumContentPreview';
 import { ExtendedMetrics } from '@/components/ExtendedMetrics';
 import { PremiumReport } from '@/components/PremiumReport';
 import { CouponQR } from '@/components/CouponQR';
+import { ShareReward } from '@/components/ShareReward';
+import ClinicaCTA from '@/components/ClinicaCTA';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { 
@@ -416,6 +418,18 @@ export default function Result() {
                 </motion.div>
               )}
 
+              {/* Share Reward - Viral mechanic for all users */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.35 }}
+              >
+                <ShareReward
+                  analysisId={analysis.id}
+                  smileScore={analysis.smile_score || 0}
+                />
+              </motion.div>
+
               {/* Locked Premium Insights for Freemium */}
               {!isPremium && (
                 <motion.div
@@ -489,6 +503,9 @@ export default function Result() {
                         expiresAt={coupon.expires_at || undefined}
                       />
                     )}
+
+                    {/* Clínica Miro CTA - Only for Premium users */}
+                    <ClinicaCTA />
                   </div>
                 )}
               </div>

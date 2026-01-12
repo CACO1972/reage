@@ -10,8 +10,8 @@ const freeBenefits = [
 const premiumFeatures = [
   {
     icon: TrendingUp,
-    title: 'Métricas Detalladas',
-    description: 'Proporciones faciales, tercios, línea media y más',
+    title: '246 Puntos Biométricos',
+    description: 'Análisis con 246 puntos faciales y dentales',
   },
   {
     icon: Box,
@@ -20,18 +20,18 @@ const premiumFeatures = [
   },
   {
     icon: Sparkles,
-    title: 'Recomendaciones IA',
-    description: 'Sugerencias personalizadas basadas en tu análisis',
+    title: 'Motor ArmonIA™ (Demo)',
+    description: '24+ factores personalizados analizados con IA',
   },
   {
     icon: FileText,
     title: 'Informe PDF Profesional',
-    description: 'Descarga y comparte tu análisis completo',
+    description: 'Descarga brandeado por email o WhatsApp',
   },
   {
     icon: Ticket,
-    title: '20% Dcto. Clínica Miro',
-    description: 'Cupón para evaluación presencial profesional',
+    title: '20% Dcto. Evaluación Clínica',
+    description: 'Cupón exclusivo para Clínica Miro con Rx incluida',
   },
 ];
 
