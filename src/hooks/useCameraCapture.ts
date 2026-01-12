@@ -74,6 +74,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lowResWarning, setLowResWarning] = useState(false);
@@ -86,21 +87,34 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setIsCameraOpen(false);
+    setIsRequestingCamera(false);
   }, []);
 
   const openCamera = useCallback(async () => {
-    console.log("[Camera] Opening camera...");
+    console.log("[Camera] openCamera called");
     setError(null);
     setLowResWarning(false);
+    
+    // First, set requesting state to show the video element in DOM
+    setIsRequestingCamera(true);
+    
+    // Wait for the video element to mount in DOM
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     const attachStream = async (stream: MediaStream) => {
       console.log("[Camera] Attaching stream to video element...");
       streamRef.current = stream;
 
-      // Wait a tick for videoRef to be ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Now videoRef should be ready - wait with retries
+      let attempts = 0;
+      while (!videoRef.current && attempts < 10) {
+        console.log("[Camera] Waiting for videoRef... attempt", attempts + 1);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
 
       if (videoRef.current) {
+        console.log("[Camera] videoRef found, setting srcObject");
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute("playsinline", "true");
         videoRef.current.setAttribute("webkit-playsinline", "true");
@@ -110,13 +124,17 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
           await videoRef.current.play();
           console.log("[Camera] Video playing successfully");
           setIsCameraOpen(true);
+          setIsRequestingCamera(false);
         } catch (playError) {
           console.warn("[Camera] Video play failed, but setting open:", playError);
           setIsCameraOpen(true);
+          setIsRequestingCamera(false);
         }
       } else {
-        console.warn("[Camera] videoRef not ready, setting open anyway");
-        setIsCameraOpen(true);
+        console.error("[Camera] videoRef still not ready after waiting");
+        setError("Error al inicializar cámara. Intenta nuevamente.");
+        setIsRequestingCamera(false);
+        stream.getTracks().forEach(t => t.stop());
       }
     };
 
@@ -422,6 +440,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     reset,
     resetFileInput,
     setCurrentMode,
+    isRequestingCamera,
     readyForAnalysis: !!restPhoto && !!smilePhoto,
   };
 }
