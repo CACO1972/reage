@@ -121,6 +121,10 @@ export default function Result() {
   const [refreshing, setRefreshing] = useState(false);
   const premiumSectionRef = useRef<HTMLDivElement>(null);
 
+  // Test mode: ?testMode=premium or ?testMode=free
+  const testMode = searchParams.get('testMode');
+  const isTestMode = testMode === 'premium' || testMode === 'free';
+
   useEffect(() => {
     if (searchParams.get('payment') === 'success') {
       toast({
@@ -233,7 +237,9 @@ export default function Result() {
   const hasSmileData = analysis.smile_score !== null;
   const hasFacialData = analysis.facial_symmetry_score !== null;
   const hasAllData = hasSmileData && hasFacialData;
-  const isPremium = analysis.mode === 'premium';
+  
+  // Test mode overrides: ?testMode=premium forces premium view, ?testMode=free forces free view
+  const isPremium = testMode === 'premium' ? true : testMode === 'free' ? false : analysis.mode === 'premium';
 
   return (
     <Layout>
@@ -273,6 +279,11 @@ export default function Result() {
               <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-primary">Premium Activo</span>
+              </div>
+            )}
+            {isTestMode && (
+              <div className="mt-2 px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 text-xs font-medium">
+                🧪 Modo Prueba: {testMode === 'premium' ? 'PREMIUM' : 'GRATUITO'}
               </div>
             )}
           </motion.div>
