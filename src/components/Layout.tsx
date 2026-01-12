@@ -31,7 +31,7 @@ export function Layout({ children, showNav = true }: LayoutProps) {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                   <span className="text-white font-bold text-sm">S</span>
                 </div>
-                <span className="font-semibold text-lg">Simetría</span>
+                <span className="font-semibold text-lg">Simetría<sup className="text-[8px] ml-0.5">®</sup></span>
               </Link>
 
               <div className="flex items-center gap-1">
