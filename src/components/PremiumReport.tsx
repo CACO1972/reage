@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Download, Share2, Check, Loader2, Eye } from 'lucide-react';
+import { FileText, Download, Share2, Check, Loader2, Eye, MessageCircle, Mail, Gift, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -18,7 +18,7 @@ interface PremiumReportProps {
   facialThirds?: { upper: number; middle: number; lower: number } | null;
 }
 
-// Simulated data for preview mode
+// Simulated data for preview mode - matches what's promised in landing
 const SIMULATED_DATA = {
   analysisId: 'SIM-2024-DEMO',
   smileScore: 78,
@@ -31,7 +31,31 @@ const SIMULATED_DATA = {
   facialThirds: { upper: 31, middle: 35, lower: 34 },
   patientName: 'Usuario Demo',
   age: 32,
-  gender: 'Femenino'
+  gender: 'Femenino',
+  // Additional ArmonIA factors for demo
+  armoniaFactors: {
+    skinElasticity: 78,
+    boneDensityEstimate: 'Normal',
+    hydrationLevel: 72,
+    photodamageIndex: 15,
+    wrinkleDepth: 'Leve',
+    porosityLevel: 'Bajo',
+    pigmentationUniformity: 85,
+    lipVolumeRatio: 1.2,
+    nasalBalance: 82,
+    cheekboneProminence: 75,
+    jawlineDefinition: 80,
+    chinProjection: 78
+  }
+};
+
+// Brand colors - Deep Space theme
+const BRAND_COLORS = {
+  primaryGold: [218, 165, 32] as [number, number, number],    // Gold
+  bronze: [205, 127, 50] as [number, number, number],         // Bronze
+  deepPurple: [25, 18, 35] as [number, number, number],       // Deep space bg
+  warmWhite: [245, 240, 230] as [number, number, number],     // Warm white
+  accent: [168, 85, 247] as [number, number, number],         // Purple accent
 };
 
 export function PremiumReport({ 
@@ -47,19 +71,20 @@ export function PremiumReport({
 }: PremiumReportProps) {
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const { toast } = useToast();
 
-  // Helper to draw professional score gauge
+  // Helper to draw professional score gauge with brand colors
   const drawScoreGauge = (pdf: jsPDF, x: number, y: number, score: number, label: string, sublabel: string, color: [number, number, number]) => {
     const radius = 22;
     
     // Outer ring background
-    pdf.setDrawColor(230, 230, 230);
+    pdf.setDrawColor(60, 60, 60);
     pdf.setLineWidth(4);
     pdf.circle(x, y, radius, 'S');
     
-    // Score arc
+    // Score arc with gradient effect
     pdf.setDrawColor(...color);
     pdf.setLineWidth(4);
     const endAngle = (score / 100) * 360;
@@ -74,7 +99,7 @@ export function PremiumReport({
       );
     }
     
-    // Inner circle for cleaner look
+    // Inner circle
     pdf.setFillColor(255, 255, 255);
     pdf.circle(x, y, radius - 6, 'F');
     
@@ -200,128 +225,148 @@ export function PremiumReport({
     
     // ============ PAGE 1: MAIN REPORT ============
     
-    // Header with gradient effect (purple to gold)
-    pdf.setFillColor(89, 40, 120); // Deep purple
-    pdf.rect(0, 0, pageWidth, 50, 'F');
+    // Header with Deep Space brand theme
+    pdf.setFillColor(...BRAND_COLORS.deepPurple);
+    pdf.rect(0, 0, pageWidth, 55, 'F');
     
-    // Accent gold line
-    pdf.setFillColor(218, 165, 32);
-    pdf.rect(0, 48, pageWidth, 2, 'F');
+    // Gold accent line
+    pdf.setFillColor(...BRAND_COLORS.primaryGold);
+    pdf.rect(0, 53, pageWidth, 2, 'F');
     
-    // Logo circle
-    pdf.setFillColor(255, 255, 255);
-    pdf.circle(22, 25, 10, 'F');
-    pdf.setTextColor(89, 40, 120);
-    pdf.setFontSize(14);
-    pdf.text('S', 22, 28, { align: 'center' });
+    // Logo - Simetría branded
+    pdf.setFillColor(...BRAND_COLORS.primaryGold);
+    pdf.circle(22, 28, 12, 'F');
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setFontSize(16);
+    pdf.text('S', 22, 32, { align: 'center' });
     
-    // Title
+    // Title - Branded
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(22);
-    pdf.text('ANÁLISIS FACIAL PREMIUM', 40, 22);
+    pdf.setFontSize(24);
+    pdf.text('SIMETRÍA', 40, 20);
     
-    pdf.setFontSize(12);
-    pdf.setTextColor(218, 165, 32);
-    pdf.text('Simetría AI • Powered by Motor ArmonIA™', 40, 32);
+    pdf.setFontSize(11);
+    pdf.setTextColor(...BRAND_COLORS.primaryGold);
+    pdf.text('INFORME DE ANÁLISIS FACIAL PREMIUM', 40, 30);
+    
+    pdf.setFontSize(9);
+    pdf.setTextColor(...BRAND_COLORS.bronze);
+    pdf.text('Powered by Motor ArmonIA™ • 246 Puntos Biométricos', 40, 38);
     
     // Report metadata
-    pdf.setFontSize(9);
-    pdf.setTextColor(200, 200, 200);
-    pdf.text(`Fecha: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, 40, 42);
-    pdf.text(`ID: ${data.analysisId.slice(0, 12).toUpperCase()}`, pageWidth - 50, 42);
+    pdf.setFontSize(8);
+    pdf.setTextColor(180, 180, 180);
+    pdf.text(`Fecha: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, 40, 48);
+    pdf.text(`ID: ${data.analysisId.slice(0, 12).toUpperCase()}`, pageWidth - 50, 48);
     
     // Preview watermark
     if (isPreview) {
       pdf.setTextColor(200, 200, 200);
-      pdf.setFontSize(40);
+      pdf.setFontSize(50);
       pdf.text('VISTA PREVIA', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
     }
     
-    // Section: Main Scores
+    // Section: What's Included (fulfilling promises)
     let yPos = 62;
+    pdf.setFillColor(250, 248, 240);
+    pdf.roundedRect(10, yPos - 5, pageWidth - 20, 18, 3, 3, 'F');
+    pdf.setDrawColor(...BRAND_COLORS.primaryGold);
+    pdf.roundedRect(10, yPos - 5, pageWidth - 20, 18, 3, 3, 'S');
+    
+    pdf.setFontSize(8);
+    pdf.setTextColor(...BRAND_COLORS.bronze);
+    pdf.text('✓ 246 Puntos Biométricos   ✓ 24+ Factores Personalizados   ✓ Motor ArmonIA™   ✓ 20% Dcto. Clínica Miro', pageWidth / 2, yPos + 5, { align: 'center' });
+    
+    // Section: Main Scores
+    yPos = 88;
     pdf.setFillColor(249, 250, 251);
     pdf.roundedRect(10, yPos - 5, pageWidth - 20, 70, 3, 3, 'F');
     
     pdf.setFontSize(12);
-    pdf.setTextColor(89, 40, 120);
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
     pdf.text('📊 PUNTUACIONES PRINCIPALES', 15, yPos + 5);
     
-    // Draw 3 score gauges
-    drawScoreGauge(pdf, 45, yPos + 40, data.smileScore, 'Smile Score', 'Estética dental', [168, 85, 247]);
-    drawScoreGauge(pdf, pageWidth / 2, yPos + 40, data.symmetryScore, 'Simetría', 'Balance visual', [59, 130, 246]);
+    // Draw 3 score gauges with brand colors
+    drawScoreGauge(pdf, 45, yPos + 40, data.smileScore, 'Smile Score', 'Estética dental', BRAND_COLORS.accent);
+    drawScoreGauge(pdf, pageWidth / 2, yPos + 40, data.symmetryScore, 'Simetría', 'Balance visual', BRAND_COLORS.primaryGold);
     drawScoreGauge(pdf, pageWidth - 45, yPos + 40, data.facialSymmetryScore, 'ArmonIA Facial', 'Proporciones', [34, 197, 94]);
     
     // Section: Detailed Metrics
-    yPos = 140;
+    yPos = 165;
     pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(10, yPos - 5, (pageWidth - 25) / 2 + 5, 85, 3, 3, 'F');
+    pdf.roundedRect(10, yPos - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'F');
     pdf.setDrawColor(230, 230, 230);
-    pdf.roundedRect(10, yPos - 5, (pageWidth - 25) / 2 + 5, 85, 3, 3, 'S');
+    pdf.roundedRect(10, yPos - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'S');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(89, 40, 120);
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
     pdf.text('📏 MÉTRICAS BIOMÉTRICAS', 15, yPos + 5);
     
-    yPos += 18;
+    yPos += 16;
     drawMetricWithZone(pdf, 15, yPos, data.midlineDeviation, -4, 4, -1.5, 1.5, 'Desviación Línea Media', 'mm');
-    yPos += 18;
+    yPos += 16;
     drawMetricWithZone(pdf, 15, yPos, data.gingivalDisplay, 0, 6, 1, 3, 'Exposición Gingival', 'mm');
-    yPos += 18;
+    yPos += 16;
     drawMetricWithZone(pdf, 15, yPos, data.buccalCorridorLeft, 0, 20, 8, 12, 'Corredor Bucal Izq', '%');
-    yPos += 18;
+    yPos += 16;
     drawMetricWithZone(pdf, 15, yPos, data.buccalCorridorRight, 0, 20, 8, 12, 'Corredor Bucal Der', '%');
     
     // Section: Facial Thirds (right side)
     const thirdsX = pageWidth / 2 + 8;
-    const thirdsY = 140;
+    const thirdsY = 165;
     pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(thirdsX - 3, thirdsY - 5, (pageWidth - 25) / 2 + 5, 85, 3, 3, 'F');
+    pdf.roundedRect(thirdsX - 3, thirdsY - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'F');
     pdf.setDrawColor(230, 230, 230);
-    pdf.roundedRect(thirdsX - 3, thirdsY - 5, (pageWidth - 25) / 2 + 5, 85, 3, 3, 'S');
+    pdf.roundedRect(thirdsX - 3, thirdsY - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'S');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(89, 40, 120);
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
     pdf.text('👤 PROPORCIONES FACIALES', thirdsX + 2, thirdsY + 5);
     
     drawFacialThirds(pdf, thirdsX + 20, thirdsY + 12, data.facialThirds);
     
     // Section: AI Interpretation
-    yPos = 235;
-    pdf.setFillColor(240, 235, 250);
-    pdf.roundedRect(10, yPos - 5, pageWidth - 20, 40, 3, 3, 'F');
+    yPos = 250;
+    pdf.setFillColor(245, 240, 250);
+    pdf.roundedRect(10, yPos - 5, pageWidth - 20, 35, 3, 3, 'F');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(89, 40, 120);
-    pdf.text('🤖 INTERPRETACIÓN AI', 15, yPos + 5);
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.text('🤖 INTERPRETACIÓN MOTOR ARMONIA™', 15, yPos + 5);
     
     const overallScore = Math.round((data.smileScore + data.symmetryScore + data.facialSymmetryScore) / 3);
     let interpretation = '';
     if (overallScore >= 85) {
-      interpretation = 'Excelente armonía facial y dental. Tus proporciones están dentro de los rangos ideales según estándares internacionales de estética. La simetría y balance de tu sonrisa destacan positivamente.';
+      interpretation = 'Excelente armonía facial y dental. Tus proporciones están dentro de los rangos ideales según estándares internacionales. La simetría y balance de tu sonrisa destacan positivamente.';
     } else if (overallScore >= 70) {
       interpretation = 'Buena armonía general con áreas de oportunidad. Las métricas muestran un balance facial positivo. Se identifican sutiles asimetrías que podrían optimizarse con tratamientos conservadores.';
     } else {
       interpretation = 'Se identifican oportunidades de mejora significativas. Los valores fuera de rango pueden beneficiarse de una evaluación especializada para un plan de tratamiento personalizado.';
     }
     
-    pdf.setFontSize(9);
+    pdf.setFontSize(8);
     pdf.setTextColor(60, 60, 60);
     const splitInterpretation = pdf.splitTextToSize(interpretation, pageWidth - 40);
-    pdf.text(splitInterpretation, 15, yPos + 15);
+    pdf.text(splitInterpretation, 15, yPos + 14);
     
-    // Footer with CTA
-    const footerY = pageHeight - 35;
-    pdf.setFillColor(89, 40, 120);
-    pdf.rect(0, footerY - 5, pageWidth, 40, 'F');
+    // Footer with Coupon CTA - More prominent
+    const footerY = pageHeight - 40;
+    pdf.setFillColor(...BRAND_COLORS.deepPurple);
+    pdf.rect(0, footerY - 5, pageWidth, 45, 'F');
     
-    pdf.setTextColor(218, 165, 32);
-    pdf.setFontSize(12);
-    pdf.text('🎁 20% DESCUENTO EN EVALUACIÓN PRESENCIAL', pageWidth / 2, footerY + 5, { align: 'center' });
+    // Coupon box
+    pdf.setFillColor(...BRAND_COLORS.primaryGold);
+    pdf.roundedRect(15, footerY, pageWidth - 30, 28, 4, 4, 'F');
     
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(10);
-    pdf.text('Clínica Miro • Evaluación completa + Radiografía panorámica', pageWidth / 2, footerY + 14, { align: 'center' });
-    pdf.text('www.clinicamiro.cl | +56 9 3557 2986', pageWidth / 2, footerY + 22, { align: 'center' });
+    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setFontSize(14);
+    pdf.text('🎁 CUPÓN 20% DESCUENTO', pageWidth / 2, footerY + 10, { align: 'center' });
+    
+    pdf.setFontSize(9);
+    pdf.text('Evaluación Presencial + Radiografía Panorámica en Clínica Miro', pageWidth / 2, footerY + 18, { align: 'center' });
+    
+    pdf.setFontSize(8);
+    pdf.text('📍 www.clinicamiro.cl | 📱 +56 9 3557 2986 | Código: SIMETRIA20', pageWidth / 2, footerY + 25, { align: 'center' });
     
     // ============ PAGE 2: DETAILED ANALYSIS ============
     pdf.addPage();
@@ -502,19 +547,46 @@ export function PremiumReport({
     }
   };
 
+  const handleShareViaWhatsApp = async () => {
+    const shareUrl = `${window.location.origin}/result/${analysisId}`;
+    const shareText = `🦷✨ ¡Mira mi análisis facial con Simetría AI!\n\n📊 Smile Score: ${smileScore}/100\n📐 Simetría: ${symmetryScore}/100\n\n¿Quieres el tuyo? Es gratis 👉`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
+  };
+
+  const handleShareViaEmail = async () => {
+    const shareUrl = `${window.location.origin}/result/${analysisId}`;
+    const subject = encodeURIComponent('Mi análisis facial con Simetría AI 🦷✨');
+    const body = encodeURIComponent(`¡Hola!\n\nAcabo de hacer mi análisis facial con IA y quería compartirte los resultados:\n\n📊 Smile Score: ${smileScore}/100\n📐 Simetría: ${symmetryScore}/100\n\n¿Quieres hacer el tuyo? Es gratis:\n${shareUrl}\n\n¡Saludos!`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
+
   return (
     <motion.div
       className="glass rounded-2xl p-6 space-y-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
+      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
           <FileText className="w-6 h-6 text-white" />
         </div>
         <div>
           <h3 className="font-semibold">Tu Reporte Premium</h3>
-          <p className="text-sm text-muted-foreground">2 páginas • 246 puntos analizados</p>
+          <p className="text-sm text-muted-foreground">2 páginas • 246 puntos • Motor ArmonIA™</p>
+        </div>
+      </div>
+
+      {/* What's Included */}
+      <div className="bg-primary/10 rounded-xl p-4 border border-primary/20">
+        <p className="text-xs font-medium text-primary mb-2 flex items-center gap-1">
+          <Sparkles className="w-3 h-3" /> Incluido en tu reporte:
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          <span>✓ 246 Puntos Biométricos</span>
+          <span>✓ Motor ArmonIA™ (Demo)</span>
+          <span>✓ 24+ Factores Personalizados</span>
+          <span>✓ Cupón 20% Clínica Miro</span>
         </div>
       </div>
 
@@ -529,72 +601,82 @@ export function PremiumReport({
       </Button>
 
       {/* Download Section */}
-      <div className="space-y-3">
-        <Button 
-          onClick={handleDownload} 
-          disabled={downloading}
-          className="w-full"
-          variant={downloaded ? 'outline' : 'default'}
-        >
-          {downloading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Generando reporte...
-            </>
-          ) : downloaded ? (
-            <>
-              <Check className="w-4 h-4 mr-2 text-accent" />
-              Descargado
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4 mr-2" />
-              Descargar Reporte PDF
-            </>
-          )}
-        </Button>
-      </div>
+      <Button 
+        onClick={handleDownload} 
+        disabled={downloading}
+        className="w-full"
+        variant={downloaded ? 'outline' : 'default'}
+      >
+        {downloading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Generando reporte...
+          </>
+        ) : downloaded ? (
+          <>
+            <Check className="w-4 h-4 mr-2 text-accent" />
+            Descargado
+          </>
+        ) : (
+          <>
+            <Download className="w-4 h-4 mr-2" />
+            Descargar Reporte PDF
+          </>
+        )}
+      </Button>
 
-      {/* Share Section */}
-      <div className="space-y-3">
+      {/* Share Section - Enhanced for virality */}
+      <div className="space-y-3 pt-2 border-t border-border/50">
         <p className="text-sm font-medium flex items-center gap-2">
-          <Share2 className="w-4 h-4" />
-          Compartir en redes
+          <Share2 className="w-4 h-4 text-primary" />
+          Enviar y compartir
         </p>
         
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button 
             variant="outline" 
-            className="flex-1"
-            onClick={() => handleShare('whatsapp')}
+            className="flex items-center gap-2 border-green-500/30 hover:bg-green-500/10"
+            onClick={handleShareViaWhatsApp}
           >
-            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-            </svg>
+            <MessageCircle className="w-4 h-4 text-green-500" />
             WhatsApp
           </Button>
           
           <Button 
             variant="outline" 
-            className="flex-1"
-            onClick={() => handleShare('facebook')}
+            className="flex items-center gap-2 border-blue-500/30 hover:bg-blue-500/10"
+            onClick={handleShareViaEmail}
           >
-            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
-            Facebook
+            <Mail className="w-4 h-4 text-blue-500" />
+            Email
           </Button>
-          
-          <Button 
-            variant="outline"
-            size="icon"
-            onClick={() => handleShare('copy')}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-          </Button>
+        </div>
+
+        <Button 
+          variant="outline"
+          className="w-full"
+          onClick={() => handleShare('copy')}
+        >
+          <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          Copiar enlace
+        </Button>
+      </div>
+
+      {/* Viral Share Incentive */}
+      <div className="bg-gradient-to-br from-primary/20 to-accent/10 rounded-xl p-4 border border-primary/30">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+            <Gift className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">¡Gana un análisis Premium gratis!</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Comparte con 5 amigos que completen su análisis
+            </p>
+          </div>
         </div>
       </div>
     </motion.div>
