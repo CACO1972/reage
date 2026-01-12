@@ -19,6 +19,8 @@ interface SkinAnalysisData {
   redness_score?: number;
   pores_score?: number;
   oiliness_score?: number;
+  firmness_score?: number;
+  eye_bags_score?: number;
   skin_age?: number;
 }
 
@@ -39,6 +41,8 @@ const metrics: Array<{
   { key: 'dark_circles_score', label: 'Ojeras', icon: Eye, idealRange: [65, 100] },
   { key: 'redness_score', label: 'Rojeces', icon: Heart, idealRange: [75, 100] },
   { key: 'pores_score', label: 'Poros', icon: Droplets, idealRange: [70, 100] },
+  { key: 'firmness_score', label: 'Firmeza', icon: Gauge, idealRange: [65, 100] },
+  { key: 'eye_bags_score', label: 'Bolsas', icon: Eye, idealRange: [65, 100] },
 ];
 
 function ScoreBar({ score, idealRange }: { score: number; idealRange: [number, number] }) {
@@ -58,12 +62,20 @@ function ScoreBar({ score, idealRange }: { score: number; idealRange: [number, n
 }
 
 export function SkinAnalysisCard({ skinData, isLocked = false }: SkinAnalysisCardProps) {
-  if (!skinData && !isLocked) {
+  // Check if there's any actual data to display
+  const hasData = skinData && Object.keys(skinData).some(key => 
+    skinData[key as keyof SkinAnalysisData] !== undefined && 
+    skinData[key as keyof SkinAnalysisData] !== null
+  );
+  
+  if (!hasData && !isLocked) {
     return null;
   }
 
-  const overallScore = skinData?.overall_score ?? 78;
-  const skinAge = skinData?.skin_age ?? 35;
+  const overallScore = skinData?.overall_score;
+  const skinAge = skinData?.skin_age;
+  const hasOverallScore = overallScore !== undefined && overallScore !== null;
+  const hasSkinAge = skinAge !== undefined && skinAge !== null;
 
   if (isLocked) {
     return (
@@ -120,40 +132,48 @@ export function SkinAnalysisCard({ skinData, isLocked = false }: SkinAnalysisCar
           </div>
         </div>
         
-        {/* Overall score badge */}
-        <motion.div 
-          className="text-center"
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.3, type: 'spring' }}
-        >
-          <div className="text-2xl font-bold text-primary">{overallScore}</div>
-          <div className="text-[10px] text-muted-foreground">Score General</div>
-        </motion.div>
+        {/* Overall score badge - only show if available */}
+        {hasOverallScore && (
+          <motion.div 
+            className="text-center"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring' }}
+          >
+            <div className="text-2xl font-bold text-primary">{overallScore}</div>
+            <div className="text-[10px] text-muted-foreground">Score General</div>
+          </motion.div>
+        )}
       </div>
 
-      {/* Skin Age Feature */}
-      <motion.div 
-        className="flex items-center justify-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 mb-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-      >
-        <Clock className="w-6 h-6 text-primary" />
-        <div className="text-center">
-          <span className="text-xs text-muted-foreground">Edad Estimada de Piel</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold text-white">{skinAge}</span>
-            <span className="text-sm text-muted-foreground">años</span>
+      {/* Skin Age Feature - only show if available */}
+      {hasSkinAge && (
+        <motion.div 
+          className="flex items-center justify-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Clock className="w-6 h-6 text-primary" />
+          <div className="text-center">
+            <span className="text-xs text-muted-foreground">Edad Estimada de Piel</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold text-white">{skinAge}</span>
+              <span className="text-sm text-muted-foreground">años</span>
+            </div>
           </div>
-        </div>
-        <Gauge className="w-6 h-6 text-accent" />
-      </motion.div>
+          <Gauge className="w-6 h-6 text-accent" />
+        </motion.div>
+      )}
 
-      {/* Metrics Grid */}
+      {/* Metrics Grid - Only show metrics with values */}
       <div className="space-y-3">
       {metrics.map((metric, index) => {
-          const score = (skinData?.[metric.key] as number | undefined) ?? 75;
+          const score = skinData?.[metric.key] as number | undefined;
+          
+          // Skip metrics without values
+          if (score === undefined || score === null) return null;
+          
           const Icon = metric.icon;
           const isIdeal = score >= metric.idealRange[0];
           
