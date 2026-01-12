@@ -1,4 +1,4 @@
-import { FlaskConical, Shield, Award, FileText, ExternalLink } from 'lucide-react';
+import { FlaskConical, Shield, Award, FileText, ExternalLink, Copyright, AlertTriangle } from 'lucide-react';
 
 const trustItems = [
   {
@@ -9,14 +9,14 @@ const trustItems = [
   {
     icon: Shield,
     title: 'Propiedad Protegida',
-    description: 'Tecnología registrada y protegida legalmente.',
+    description: 'Tecnología registrada ante INAPI Chile.',
     link: 'https://www.inapi.cl/',
     linkText: 'INAPI',
   },
   {
     icon: Award,
     title: 'Derechos de Autor',
-    description: 'Código y algoritmos con registro internacional.',
+    description: 'Registro internacional de propiedad intelectual.',
     link: 'https://www.safecreative.org/',
     linkText: 'SafeCreative',
   },
@@ -44,7 +44,7 @@ export default function TrustSection() {
         </div>
 
         {/* Trust Grid - enhanced */}
-        <div className="grid grid-cols-2 gap-4 mb-12">
+        <div className="grid grid-cols-2 gap-4 mb-8">
           {trustItems.map((item, index) => (
             <div 
               key={index} 
@@ -69,7 +69,41 @@ export default function TrustSection() {
           ))}
         </div>
 
-        {/* Disclaimer - styled */}
+        {/* IP Protection Notice */}
+        <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 mb-4">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Copyright className="w-4 h-4 text-primary" />
+            <span className="text-xs font-semibold text-white/90">
+              Simetría<sup>®</sup> · Motor ArmonIA™
+            </span>
+          </div>
+          <p className="text-center text-[11px] text-white/60 leading-relaxed mb-2">
+            Propiedad intelectual protegida de <span className="text-white/80 font-medium">Clínica Miró</span> y 
+            <span className="text-white/80 font-medium"> Dr. Carlos Montoya</span>.
+          </p>
+          <p className="text-center text-[10px] text-white/40">
+            Registro SafeCreative · Todos los derechos reservados © {new Date().getFullYear()}
+          </p>
+        </div>
+
+        {/* Usage Prohibition Disclaimer */}
+        <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[11px] text-amber-300/90 font-medium mb-1">
+                Prohibido el uso no autorizado
+              </p>
+              <p className="text-[10px] text-white/50 leading-relaxed">
+                Queda estrictamente prohibida la reproducción, distribución, modificación o uso parcial o total 
+                del contenido, código, algoritmos, metodologías e imágenes de esta aplicación sin autorización 
+                expresa por escrito de los titulares de los derechos.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Medical Disclaimer */}
         <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] px-4 py-3">
           <p className="text-center text-[11px] text-white/40 leading-relaxed">
             ⚕️ Este análisis es orientativo y no constituye diagnóstico médico. 
