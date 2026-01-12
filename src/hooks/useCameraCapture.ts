@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type CaptureMode = "rest" | "smile";
 
 interface UseCameraCaptureOptions {
   maxDownscalePx?: number; // Max dimension for auto-downscale
   lowResWarningPx?: number; // Below this, show warning
+  enableSmartCrop?: boolean; // Enable AI-powered face cropping
 }
 
 interface CaptureResult {
   file: File;
   preview: string;
   lowResWarning?: boolean;
+  wasAdapted?: boolean;
 }
 
 // Supported MIME types
@@ -21,6 +24,35 @@ const ACCEPTED_TYPES = [
   "image/heic",
   "image/heif",
 ];
+
+/**
+ * Convert blob to base64
+ */
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1] || result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Convert base64 to blob
+ */
+function base64ToBlob(base64: string, mimeType: string = 'image/jpeg'): Blob {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+}
 
 /**
  * Downscales an image if needed and converts to JPEG
@@ -67,7 +99,11 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   const {
     maxDownscalePx = 2200,
     lowResWarningPx = 800,
+    enableSmartCrop = true,
   } = options || {};
+  
+  const [isAdaptingImage, setIsAdaptingImage] = useState(false);
+  const [adaptedMessage, setAdaptedMessage] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -335,6 +371,7 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
       setError(null);
       setLowResWarning(false);
       setIsProcessing(true);
+      setAdaptedMessage(null);
       
       try {
         // Check file type
@@ -348,7 +385,56 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
         }
         
         // Process image (downscale + convert to JPEG)
-        const { blob, width, height } = await processImage(file, maxDownscalePx);
+        let { blob, width, height } = await processImage(file, maxDownscalePx);
+        let wasAdapted = false;
+        
+        // Smart crop: use AI to adapt the image if needed (only for gallery uploads)
+        if (enableSmartCrop) {
+          try {
+            setIsAdaptingImage(true);
+            console.log("[SmartCrop] Sending image for AI analysis...");
+            
+            const base64 = await blobToBase64(blob);
+            
+            const { data, error: fnError } = await supabase.functions.invoke('smart-crop-face', {
+              body: { imageBase64: base64 }
+            });
+            
+            if (fnError) {
+              console.warn("[SmartCrop] Edge function error:", fnError);
+              // Continue with original image
+            } else if (data) {
+              if (!data.success && data.message) {
+                // No face detected - show error
+                setError(data.message);
+                setIsAdaptingImage(false);
+                setIsProcessing(false);
+                return;
+              }
+              
+              if (data.wasAdapted && data.croppedImageBase64) {
+                // Use the AI-adapted image
+                console.log("[SmartCrop] Image was adapted by AI");
+                blob = base64ToBlob(data.croppedImageBase64);
+                wasAdapted = true;
+                setAdaptedMessage(data.message || "Imagen adaptada automáticamente");
+                
+                // Re-calculate dimensions from new blob
+                const adaptedBitmap = await createImageBitmap(blob);
+                width = adaptedBitmap.width;
+                height = adaptedBitmap.height;
+                adaptedBitmap.close();
+              } else {
+                console.log("[SmartCrop] Image accepted without changes");
+              }
+            }
+          } catch (smartCropError) {
+            console.warn("[SmartCrop] Error during smart crop, using original:", smartCropError);
+            // Continue with original image
+          } finally {
+            setIsAdaptingImage(false);
+          }
+        }
         
         // Check low resolution
         const minDim = Math.min(width, height);
@@ -362,16 +448,17 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
         
         const preview = URL.createObjectURL(blob);
         
-        savePhoto({ file: processedFile, preview, lowResWarning: isLowRes });
+        savePhoto({ file: processedFile, preview, lowResWarning: isLowRes, wasAdapted });
         
       } catch (e) {
         console.error("File processing error:", e);
         setError("No se pudo procesar la imagen. Prueba con otra.");
       } finally {
         setIsProcessing(false);
+        setIsAdaptingImage(false);
       }
     },
-    [currentMode, savePhoto, maxDownscalePx, lowResWarningPx]
+    [currentMode, savePhoto, maxDownscalePx, lowResWarningPx, enableSmartCrop]
   );
 
   const clearPhoto = useCallback((mode: CaptureMode) => {
@@ -426,6 +513,8 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
     fileInputRef,
     isCameraOpen,
     isProcessing,
+    isAdaptingImage,
+    adaptedMessage,
     error,
     lowResWarning,
     restPhoto,
