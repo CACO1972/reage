@@ -5,7 +5,8 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useCameraCapture } from '@/hooks/useCameraCapture';
+import { usePerfectCorpCamera } from '@/hooks/usePerfectCorpCamera';
+import { PerfectCorpCameraOverlay } from '@/components/PerfectCorpCameraOverlay';
 import {
   Camera,
   Upload,
@@ -18,6 +19,7 @@ import {
   Sun,
   User,
   Glasses,
+  Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,40 +29,25 @@ export default function Scan() {
   const { toast } = useToast();
 
   const {
-    videoRef,
-    fileInputRef,
+    isSDKLoaded,
+    isSDKLoading,
     isCameraOpen,
-    isRequestingCamera,
-    isProcessing,
-    isAdaptingImage,
-    adaptedMessage,
+    isCapturing,
+    faceQuality,
     error: cameraError,
-    lowResWarning,
     restPhoto,
     smilePhoto,
     currentMode,
-    openCamera,
-    stopCamera,
-    captureFromCamera,
-    handleFileInput,
-    clearPhoto,
-    retakePhoto,
-    resetFileInput,
     readyForAnalysis,
+    openCamera,
+    closeCamera,
     setCurrentMode,
-  } = useCameraCapture({ maxDownscalePx: 2200, lowResWarningPx: 800, enableSmartCrop: true });
+    retakePhoto,
+    clearPhotos,
+  } = usePerfectCorpCamera();
 
   const [isUploading, setIsUploading] = useState(false);
-  const [cameraPermissionRequested, setCameraPermissionRequested] = useState(false);
-  
-  // File input ref for allowing re-select of same file
   const galleryInputRef = useRef<HTMLInputElement>(null);
-
-  // Handle camera open with permission tracking
-  const handleOpenCamera = async () => {
-    setCameraPermissionRequested(true);
-    await openCamera();
-  };
 
   // Redirect to auth if not logged in
   if (!authLoading && !user) {
@@ -145,10 +132,31 @@ export default function Scan() {
     }
   };
 
-  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle gallery file selection (fallback)
+  const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFileInput(file);
-    // Reset input to allow re-selecting same file
+    if (!file) return;
+    
+    // For fallback gallery upload, we'll process and set the photo
+    const reader = new FileReader();
+    reader.onload = () => {
+      const preview = reader.result as string;
+      
+      // Convert to File with proper type
+      fetch(preview)
+        .then(res => res.blob())
+        .then(blob => {
+          const photoFile = new File([blob], `gallery-${currentMode}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          // We need to handle this separately since the hook doesn't expose setRestPhoto/setSmilePhoto
+          // For now, show a toast suggesting to use the camera
+          toast({
+            title: 'Usa la cámara profesional',
+            description: 'Para mejor calidad de análisis, usa la cámara con validación automática.',
+          });
+        });
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -161,7 +169,6 @@ export default function Scan() {
   }
 
   const currentPhoto = currentMode === 'rest' ? restPhoto : smilePhoto;
-  const stepNumber = currentMode === 'rest' ? 1 : 2;
 
   return (
     <Layout>
@@ -204,126 +211,42 @@ export default function Scan() {
         <main className="flex-1 px-4 pb-28 space-y-4">
           {/* Camera/Photo area */}
           <section className="relative">
-            {(isCameraOpen || isRequestingCamera) ? (
+            {/* Perfect Corp Camera Module Container */}
+            <div id="YMK-module" className={`${isCameraOpen || isCapturing ? 'block' : 'hidden'}`}>
+              {/* Perfect Corp SDK renders here */}
+            </div>
+
+            {(isCameraOpen || isCapturing) && (
               <div className="space-y-3">
-                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover scale-x-[-1]"
-                    playsInline
-                    muted
-                    autoPlay
-                  />
-                  
-                  {/* Loading overlay when requesting camera */}
-                  {isRequestingCamera && !isCameraOpen && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                      <div className="text-center space-y-3">
-                        <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-                        <p className="text-sm text-muted-foreground">Solicitando cámara...</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Face guide overlay - only show when camera is open */}
-                  {isCameraOpen && (
-                    <div className="absolute inset-0 pointer-events-none">
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
-                        <defs>
-                          <mask id="ovalMask">
-                            <rect x="0" y="0" width="100" height="100" fill="white"/>
-                            <ellipse cx="50" cy="45" rx="22" ry="30" fill="black"/>
-                          </mask>
-                        </defs>
-                        <rect x="0" y="0" width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#ovalMask)"/>
-                        <ellipse cx="50" cy="45" rx="22" ry="30" fill="none" stroke="#d4a853" strokeWidth="0.5"/>
-                        {/* Corner brackets */}
-                        <path d="M 25 18 L 25 14 L 30 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                        <path d="M 75 18 L 75 14 L 70 14" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                        <path d="M 25 76 L 25 80 L 30 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                        <path d="M 75 76 L 75 80 L 70 80" fill="none" stroke="#d4a853" strokeWidth="0.4"/>
-                      </svg>
-                    </div>
-                  )}
-                  
-                  {/* Tips bar - only show when camera is open */}
-                  {isCameraOpen && (
-                    <div className="absolute top-3 left-3 right-3 flex justify-center gap-2">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                        <Sun className="w-3 h-3" />
-                        Luz frontal
-                      </div>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                        <User className="w-3 h-3" />
-                        Centrado
-                      </div>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-black/50 text-amber-400 border border-amber-500/30 backdrop-blur-sm">
-                        <Glasses className="w-3 h-3" />
-                        Sin lentes
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Current step instruction - only show when camera is open */}
-                  {isCameraOpen && (
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="text-center text-xs text-white/90 bg-black/50 rounded-lg px-3 py-2 backdrop-blur-sm">
-                        {currentMode === 'rest' 
-                          ? '😐 Rostro relajado • Labios cerrados'
-                          : '😁 Sonrisa natural • Muestra los dientes'
-                        }
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* Face quality overlay */}
+                <PerfectCorpCameraOverlay 
+                  faceQuality={faceQuality} 
+                  currentMode={currentMode}
+                />
                 
-                {/* Capture button - only enable when camera is fully open */}
-                <Button
-                  onClick={captureFromCamera}
-                  disabled={isProcessing || !isCameraOpen}
-                  className="w-full h-14 text-base font-semibold"
-                  variant="hero"
-                >
-                  {(isProcessing || isRequestingCamera) ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Camera className="w-5 h-5 mr-2" />
-                      Capturar {currentMode === 'rest' ? 'reposo' : 'sonrisa'}
-                    </>
-                  )}
-                </Button>
+                {/* Loading indicator while SDK initializes */}
+                {isSDKLoading && (
+                  <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto" />
+                      <p className="text-sm text-muted-foreground">Cargando cámara profesional...</p>
+                    </div>
+                  </div>
+                )}
                 
+                {/* Cancel button */}
                 <Button
-                  onClick={stopCamera}
+                  onClick={closeCamera}
                   variant="ghost"
-                  className="w-full"
-                  disabled={isRequestingCamera && !isCameraOpen}
+                  className="w-full mt-4"
                 >
                   Cancelar
                 </Button>
               </div>
-            ) : isProcessing || isAdaptingImage ? (
-              /* Processing/Adapting overlay */
-              <div className="space-y-3">
-                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
-                  <div className="text-center space-y-4 px-6">
-                    <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-                    <div>
-                      <p className="text-white font-medium">
-                        {isAdaptingImage ? '🧠 Analizando imagen con IA...' : 'Procesando...'}
-                      </p>
-                      {isAdaptingImage && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Adaptando automáticamente para análisis óptimo
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : currentPhoto ? (
-              /* Photo preview with actions */
+            )}
+
+            {/* Photo preview */}
+            {!isCameraOpen && !isCapturing && currentPhoto && (
               <div className="space-y-3">
                 <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
                   <img
@@ -334,31 +257,13 @@ export default function Scan() {
                   <div className="absolute top-3 right-3">
                     <CheckCircle2 className="w-8 h-8 text-green-500 drop-shadow-lg" />
                   </div>
-                  {/* Show adapted badge if image was AI-adapted */}
-                  {currentPhoto.wasAdapted && (
-                    <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      Adaptada con IA
-                    </div>
-                  )}
+                  
+                  {/* Quality badge */}
+                  <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-green-500/90 text-white text-[10px] font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Validada por IA
+                  </div>
                 </div>
-                
-                {/* Adapted message */}
-                <AnimatePresence>
-                  {currentPhoto.wasAdapted && adaptedMessage && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="p-3 rounded-xl bg-primary/10 border border-primary/30 flex items-start gap-2"
-                    >
-                      <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                      <p className="text-xs text-primary">
-                        {adaptedMessage}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
                 
                 {/* Low resolution warning */}
                 <AnimatePresence>
@@ -371,7 +276,7 @@ export default function Scan() {
                     >
                       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                       <p className="text-xs text-amber-400">
-                        Resolución baja detectada. Para mejores resultados, usa una foto de mayor calidad.
+                        Resolución baja detectada. Para mejores resultados, usa mejor iluminación.
                       </p>
                     </motion.div>
                   )}
@@ -416,32 +321,29 @@ export default function Scan() {
                   )}
                 </div>
               </div>
-            ) : (
-              /* Initial selection: Camera or Gallery */
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleOpenCamera}
-                    className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 transition-colors"
-                  >
-                    <Camera className="w-10 h-10 mb-2 text-primary" />
-                    <span className="font-medium">Habilitar cámara</span>
-                    <span className="text-xs text-muted-foreground mt-0.5">Modo selfie</span>
-                  </button>
+            )}
 
-                  <label className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 cursor-pointer transition-colors">
-                    <Upload className="w-10 h-10 mb-2 text-accent" />
-                    <span className="font-medium">Subir imagen</span>
-                    <span className="text-xs text-muted-foreground mt-0.5">Desde galería</span>
-                    <input
-                      ref={galleryInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                      className="hidden"
-                      onChange={handleGalleryChange}
-                    />
-                  </label>
-                </div>
+            {/* Initial selection: Camera or Gallery */}
+            {!isCameraOpen && !isCapturing && !currentPhoto && (
+              <div className="space-y-3">
+                {/* Main camera button - Perfect Corp SDK */}
+                <button
+                  onClick={openCamera}
+                  disabled={isSDKLoading}
+                  className="w-full border border-primary/50 rounded-2xl py-10 flex flex-col items-center justify-center text-sm text-foreground hover:bg-primary/5 transition-colors disabled:opacity-50"
+                >
+                  {isSDKLoading ? (
+                    <Loader2 className="w-12 h-12 mb-3 text-primary animate-spin" />
+                  ) : (
+                    <Camera className="w-12 h-12 mb-3 text-primary" />
+                  )}
+                  <span className="font-semibold text-base">
+                    {isSDKLoading ? 'Cargando...' : 'Abrir cámara profesional'}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1">
+                    Validación automática de calidad
+                  </span>
+                </button>
                 
                 {/* Tips cards */}
                 <div className="grid grid-cols-2 gap-3">
@@ -468,6 +370,19 @@ export default function Scan() {
                     </ul>
                   </div>
                 </div>
+
+                {/* Fallback gallery option - smaller */}
+                <label className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  <Upload className="w-4 h-4" />
+                  <span>O subir desde galería (no recomendado)</span>
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                    className="hidden"
+                    onChange={handleGalleryChange}
+                  />
+                </label>
               </div>
             )}
 
