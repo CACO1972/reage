@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import jsPDF from 'jspdf';
+import logoSimetria from '@/assets/logo-simetria.png';
 
 interface PremiumReportProps {
   analysisId: string;
@@ -49,13 +50,34 @@ const SIMULATED_DATA = {
   }
 };
 
-// Brand colors - Deep Space theme
+// Brand colors - Deep Space theme with gold accents
 const BRAND_COLORS = {
   primaryGold: [218, 165, 32] as [number, number, number],    // Gold
   bronze: [205, 127, 50] as [number, number, number],         // Bronze
-  deepPurple: [25, 18, 35] as [number, number, number],       // Deep space bg
+  deepSpace: [12, 10, 18] as [number, number, number],        // Deep space bg
   warmWhite: [245, 240, 230] as [number, number, number],     // Warm white
   accent: [168, 85, 247] as [number, number, number],         // Purple accent
+  darkPurple: [45, 20, 65] as [number, number, number],       // Header purple
+};
+
+// Function to convert image to base64
+const getLogoBase64 = async (): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      }
+    };
+    img.onerror = () => resolve('');
+    img.src = logoSimetria;
+  });
 };
 
 export function PremiumReport({ 
@@ -223,46 +245,69 @@ export function PremiumReport({
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
+    // Load logo
+    const logoBase64 = await getLogoBase64();
+    
     // ============ PAGE 1: MAIN REPORT ============
     
-    // Header with Deep Space brand theme
-    pdf.setFillColor(...BRAND_COLORS.deepPurple);
-    pdf.rect(0, 0, pageWidth, 55, 'F');
+    // Header with premium gradient effect
+    pdf.setFillColor(...BRAND_COLORS.darkPurple);
+    pdf.rect(0, 0, pageWidth, 60, 'F');
     
-    // Gold accent line
+    // Gold accent lines
     pdf.setFillColor(...BRAND_COLORS.primaryGold);
-    pdf.rect(0, 53, pageWidth, 2, 'F');
+    pdf.rect(0, 58, pageWidth, 2, 'F');
+    pdf.setFillColor(...BRAND_COLORS.bronze);
+    pdf.rect(0, 56, pageWidth, 1, 'F');
     
-    // Logo - Simetría branded
+    // Add official logo
+    if (logoBase64) {
+      try {
+        pdf.addImage(logoBase64, 'PNG', 12, 12, 50, 36);
+      } catch (e) {
+        // Fallback text if logo fails
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(20);
+        pdf.text('SIMETRÍA', 15, 32);
+      }
+    } else {
+      // Fallback branded text
+      pdf.setFillColor(...BRAND_COLORS.primaryGold);
+      pdf.circle(22, 28, 12, 'F');
+      pdf.setTextColor(...BRAND_COLORS.deepSpace);
+      pdf.setFontSize(16);
+      pdf.text('S', 22, 32, { align: 'center' });
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.text('SIMETRÍA', 40, 28);
+    }
+    
+    // Premium badge
     pdf.setFillColor(...BRAND_COLORS.primaryGold);
-    pdf.circle(22, 28, 12, 'F');
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
-    pdf.setFontSize(16);
-    pdf.text('S', 22, 32, { align: 'center' });
+    pdf.roundedRect(pageWidth - 55, 15, 42, 10, 3, 3, 'F');
+    pdf.setTextColor(...BRAND_COLORS.deepSpace);
+    pdf.setFontSize(8);
+    pdf.text('★ PREMIUM', pageWidth - 34, 21, { align: 'center' });
     
-    // Title - Branded
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(24);
-    pdf.text('SIMETRÍA', 40, 20);
-    
-    pdf.setFontSize(11);
+    // Subtitle
     pdf.setTextColor(...BRAND_COLORS.primaryGold);
-    pdf.text('INFORME DE ANÁLISIS FACIAL PREMIUM', 40, 30);
+    pdf.setFontSize(11);
+    pdf.text('INFORME DE ANÁLISIS FACIAL PREMIUM', 70, 26);
     
     pdf.setFontSize(9);
     pdf.setTextColor(...BRAND_COLORS.bronze);
-    pdf.text('Powered by Motor ArmonIA™ • 246 Puntos Biométricos', 40, 38);
+    pdf.text('Powered by Motor ArmonIA™ • 246 Puntos Biométricos', 70, 34);
     
     // Report metadata
     pdf.setFontSize(8);
     pdf.setTextColor(180, 180, 180);
-    pdf.text(`Fecha: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, 40, 48);
-    pdf.text(`ID: ${data.analysisId.slice(0, 12).toUpperCase()}`, pageWidth - 50, 48);
+    pdf.text(`Fecha: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, 70, 44);
+    pdf.text(`ID: ${data.analysisId.slice(0, 12).toUpperCase()}`, 70, 50);
     
     // Preview watermark
     if (isPreview) {
       pdf.setTextColor(200, 200, 200);
-      pdf.setFontSize(50);
+      pdf.setFontSize(45);
       pdf.text('VISTA PREVIA', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
     }
     
@@ -283,7 +328,7 @@ export function PremiumReport({
     pdf.roundedRect(10, yPos - 5, pageWidth - 20, 70, 3, 3, 'F');
     
     pdf.setFontSize(12);
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setTextColor(...BRAND_COLORS.darkPurple);
     pdf.text('📊 PUNTUACIONES PRINCIPALES', 15, yPos + 5);
     
     // Draw 3 score gauges with brand colors
@@ -299,7 +344,7 @@ export function PremiumReport({
     pdf.roundedRect(10, yPos - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'S');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setTextColor(...BRAND_COLORS.darkPurple);
     pdf.text('📏 MÉTRICAS BIOMÉTRICAS', 15, yPos + 5);
     
     yPos += 16;
@@ -320,7 +365,7 @@ export function PremiumReport({
     pdf.roundedRect(thirdsX - 3, thirdsY - 5, (pageWidth - 25) / 2 + 5, 75, 3, 3, 'S');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setTextColor(...BRAND_COLORS.darkPurple);
     pdf.text('👤 PROPORCIONES FACIALES', thirdsX + 2, thirdsY + 5);
     
     drawFacialThirds(pdf, thirdsX + 20, thirdsY + 12, data.facialThirds);
@@ -331,7 +376,7 @@ export function PremiumReport({
     pdf.roundedRect(10, yPos - 5, pageWidth - 20, 35, 3, 3, 'F');
     
     pdf.setFontSize(11);
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setTextColor(...BRAND_COLORS.darkPurple);
     pdf.text('🤖 INTERPRETACIÓN MOTOR ARMONIA™', 15, yPos + 5);
     
     const overallScore = Math.round((data.smileScore + data.symmetryScore + data.facialSymmetryScore) / 3);
@@ -351,14 +396,14 @@ export function PremiumReport({
     
     // Footer with Coupon CTA - More prominent
     const footerY = pageHeight - 40;
-    pdf.setFillColor(...BRAND_COLORS.deepPurple);
+    pdf.setFillColor(...BRAND_COLORS.darkPurple);
     pdf.rect(0, footerY - 5, pageWidth, 45, 'F');
     
     // Coupon box
     pdf.setFillColor(...BRAND_COLORS.primaryGold);
     pdf.roundedRect(15, footerY, pageWidth - 30, 28, 4, 4, 'F');
     
-    pdf.setTextColor(...BRAND_COLORS.deepPurple);
+    pdf.setTextColor(...BRAND_COLORS.darkPurple);
     pdf.setFontSize(14);
     pdf.text('🎁 CUPÓN 20% DESCUENTO', pageWidth / 2, footerY + 10, { align: 'center' });
     
@@ -371,15 +416,24 @@ export function PremiumReport({
     // ============ PAGE 2: DETAILED ANALYSIS ============
     pdf.addPage();
     
-    // Header
-    pdf.setFillColor(89, 40, 120);
-    pdf.rect(0, 0, pageWidth, 25, 'F');
-    pdf.setFillColor(218, 165, 32);
-    pdf.rect(0, 23, pageWidth, 2, 'F');
+    // Header with logo
+    pdf.setFillColor(...BRAND_COLORS.darkPurple);
+    pdf.rect(0, 0, pageWidth, 30, 'F');
+    pdf.setFillColor(...BRAND_COLORS.primaryGold);
+    pdf.rect(0, 28, pageWidth, 2, 'F');
+    
+    // Add logo on page 2
+    if (logoBase64) {
+      try {
+        pdf.addImage(logoBase64, 'PNG', 10, 5, 30, 22);
+      } catch (e) {
+        // Fallback
+      }
+    }
     
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(14);
-    pdf.text('ANÁLISIS DETALLADO • MOTOR ARMONIA™', pageWidth / 2, 15, { align: 'center' });
+    pdf.text('ANÁLISIS DETALLADO • MOTOR ARMONIA™', pageWidth / 2 + 15, 18, { align: 'center' });
     
     // 246 Biometric Points Section
     yPos = 40;
@@ -475,13 +529,29 @@ export function PremiumReport({
     const splitDisclaimer = pdf.splitTextToSize(disclaimer, pageWidth - 40);
     pdf.text(splitDisclaimer, 15, yPos + 13);
     
-    // Final footer
-    pdf.setFillColor(89, 40, 120);
-    pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F');
+    // Final footer with branding
+    pdf.setFillColor(...BRAND_COLORS.darkPurple);
+    pdf.rect(0, pageHeight - 20, pageWidth, 20, 'F');
+    
+    pdf.setFillColor(...BRAND_COLORS.primaryGold);
+    pdf.rect(0, pageHeight - 20, pageWidth, 1, 'F');
+    
+    // Add small logo
+    if (logoBase64) {
+      try {
+        pdf.addImage(logoBase64, 'PNG', 15, pageHeight - 17, 18, 13);
+      } catch (e) {
+        // Fallback
+      }
+    }
     
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(8);
-    pdf.text('© 2024 Simetría AI • Clínica Miro • Todos los derechos reservados', pageWidth / 2, pageHeight - 6, { align: 'center' });
+    pdf.text('© 2025 Simetría AI • Clínica Miro • Todos los derechos reservados', pageWidth / 2 + 10, pageHeight - 10, { align: 'center' });
+    
+    pdf.setFontSize(7);
+    pdf.setTextColor(...BRAND_COLORS.primaryGold);
+    pdf.text('www.simetria.ai', pageWidth - 25, pageHeight - 10);
     
     return pdf;
   };
