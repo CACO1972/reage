@@ -26,16 +26,23 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   }, [isLoaded, play]);
 
   // Play subtle SFX on mount - elegant whoosh/shimmer
+  // This is a non-critical enhancement that fails gracefully
   useEffect(() => {
-    if (!sfxPlayedRef.current) {
+    const playSplashSound = async () => {
+      if (sfxPlayedRef.current) return;
       sfxPlayedRef.current = true;
-      // Use a subtle, elegant sound - fails gracefully if API not available
-      playSFX('Subtle elegant digital shimmer whoosh, soft and luxurious, high-end brand reveal sound', 2)
-        .catch(() => {
-          // Silently fail - audio is optional enhancement
-          console.log('SFX not available, continuing without sound');
-        });
-    }
+      
+      try {
+        await playSFX('Subtle elegant digital shimmer whoosh, soft and luxurious, high-end brand reveal sound', 2);
+      } catch {
+        // Silently fail - SFX is optional enhancement
+        // API key may lack sound_generation permission
+      }
+    };
+    
+    // Delay slightly to not block initial render
+    const timer = setTimeout(playSplashSound, 100);
+    return () => clearTimeout(timer);
   }, [playSFX]);
 
   useEffect(() => {
