@@ -295,7 +295,11 @@ export default function Scan() {
                   
                   {currentMode === 'rest' ? (
                     <Button
-                      onClick={() => setCurrentMode('smile')}
+                      onClick={() => {
+                        setCurrentMode('smile');
+                        // Open camera for smile after brief delay
+                        setTimeout(() => openCamera(), 300);
+                      }}
                       className="h-12"
                       variant="hero"
                     >

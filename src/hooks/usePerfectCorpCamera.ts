@@ -88,9 +88,16 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
   const [restPhoto, setRestPhoto] = useState<CapturedPhoto | null>(null);
   const [smilePhoto, setSmilePhoto] = useState<CapturedPhoto | null>(null);
   const [currentMode, setCurrentMode] = useState<CaptureMode>('rest');
+  const [shouldOpenCameraForSmile, setShouldOpenCameraForSmile] = useState(false);
   
   const listenerIdsRef = useRef<string[]>([]);
   const sdkLoadedRef = useRef(false);
+  const currentModeRef = useRef<CaptureMode>(currentMode);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentModeRef.current = currentMode;
+  }, [currentMode]);
 
   // Load SDK script
   const loadSDK = useCallback(() => {
@@ -199,7 +206,7 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
 
     // Image captured
     const capturedId = window.YMK.addEventListener('faceDetectionCaptured', (result: YMKCapturedResult) => {
-      console.log('[PerfectCorp] Image captured:', result.mode, result.images.length);
+      console.log('[PerfectCorp] Image captured:', result.mode, result.images.length, 'currentMode:', currentModeRef.current);
       
       if (result.images.length > 0) {
         const capturedImage = result.images[0];
@@ -220,7 +227,9 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
             blob = imageData as Blob;
           }
           
-          const fileName = `capture-${currentMode}-${Date.now()}.jpg`;
+          // Use ref to get the correct mode at capture time
+          const captureMode = currentModeRef.current;
+          const fileName = `capture-${captureMode}-${Date.now()}.jpg`;
           const file = new File([blob], fileName, { type: 'image/jpeg' });
           
           const photo: CapturedPhoto = {
@@ -230,12 +239,13 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
             lowResWarning: capturedImage.width < 800 || capturedImage.height < 800
           };
           
-          if (currentMode === 'rest') {
+          console.log('[PerfectCorp] Saving photo for mode:', captureMode);
+          
+          if (captureMode === 'rest') {
             setRestPhoto(photo);
-            // Auto-advance to smile mode
-            setTimeout(() => {
-              setCurrentMode('smile');
-            }, 500);
+            // Auto-advance to smile mode and trigger camera reopen
+            setCurrentMode('smile');
+            setShouldOpenCameraForSmile(true);
           } else {
             setSmilePhoto(photo);
           }
@@ -257,7 +267,7 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
       setIsCameraOpen(false);
     });
     listenerIdsRef.current.push(moduleClosedId);
-  }, [currentMode]);
+  }, []); // Remove currentMode dependency - use ref instead
 
   // Open camera
   const openCamera = useCallback(async () => {
@@ -332,6 +342,23 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
 
   // Ready for analysis check
   const readyForAnalysis = restPhoto !== null && smilePhoto !== null;
+
+  // Auto-open camera for smile photo after rest photo is captured
+  useEffect(() => {
+    if (shouldOpenCameraForSmile && currentMode === 'smile' && !restPhoto) {
+      // Reset flag and wait a moment before opening camera
+      setShouldOpenCameraForSmile(false);
+    }
+    
+    if (shouldOpenCameraForSmile && currentMode === 'smile' && restPhoto && !smilePhoto) {
+      // Add a small delay to let the UI update before reopening camera
+      const timer = setTimeout(() => {
+        setShouldOpenCameraForSmile(false);
+        openCamera();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldOpenCameraForSmile, currentMode, restPhoto, smilePhoto, openCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
