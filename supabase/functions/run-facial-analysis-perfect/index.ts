@@ -6,26 +6,127 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface SkinAnalysisResult {
-  overall_score: number;
-  wrinkle_score: number;
-  spots_score: number;
-  texture_score: number;
-  dark_circles_score: number;
-  redness_score: number;
-  pores_score: number;
-  oiliness_score: number;
-  skin_age: number;
+// Perfect Corp available skin analysis parameters (SD mode)
+const ALL_SKIN_PARAMS = [
+  'wrinkle', 'pore', 'texture', 'acne', 'dark_circle_v2', 
+  'age_spot', 'firmness', 'moisture', 'oiliness', 'radiance', 
+  'redness', 'eye_bag', 'droopy_upper_eyelid', 'droopy_lower_eyelid'
+] as const;
+
+// Map AI recommendations to Perfect Corp parameter names
+const PARAM_MAPPING: Record<string, string> = {
+  'wrinkles': 'wrinkle',
+  'pores': 'pore',
+  'acne': 'acne',
+  'dark_circles': 'dark_circle_v2',
+  'spots': 'age_spot',
+  'age_spots': 'age_spot',
+  'firmness': 'firmness',
+  'hydration': 'moisture',
+  'moisture': 'moisture',
+  'oiliness': 'oiliness',
+  'radiance': 'radiance',
+  'redness': 'redness',
+  'texture': 'texture',
+  'eye_bags': 'eye_bag',
+  'droopy_eyelids': 'droopy_upper_eyelid'
+};
+
+interface PreAnalysisResult {
+  recommended_params: string[];
+  facial_analysis: {
+    symmetry_score: number;
+    midline_deviation: number;
+    thirds_ratio: { upper: number; middle: number; lower: number };
+    face_shape: string;
+  };
+  rationale: string;
 }
 
-interface FacialAnalysisResult {
-  symmetry_score: number;
-  midline_deviation: number;
-  thirds_ratio: { upper: number; middle: number; lower: number };
-  face_shape: string;
-  eye_distance_ratio: number;
-  nose_ratio: number;
-  lip_ratio: number;
+interface PerfectCorpSkinResult {
+  type: string;
+  ui_score: number;
+  raw_score: number;
+  mask_urls?: string[];
+}
+
+async function downloadImage(url: string): Promise<{blob: Blob, contentType: string}> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download image: ${response.status}`);
+  }
+  const blob = await response.blob();
+  const contentType = response.headers.get('content-type') || 'image/jpeg';
+  return { blob, contentType };
+}
+
+async function uploadToPerfectCorp(
+  perfectApiKey: string, 
+  imageBlob: Blob, 
+  contentType: string,
+  fileName: string
+): Promise<string> {
+  // Step 1: Create file metadata
+  const fileSize = imageBlob.size;
+  console.log(`Uploading image to Perfect Corp: ${fileName}, size: ${fileSize}, type: ${contentType}`);
+  
+  const fileResponse = await fetch('https://yce-api-01.makeupar.com/s2s/v2.0/file/skin-analysis', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${perfectApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      files: [{
+        content_type: contentType,
+        file_name: fileName,
+        file_size: fileSize
+      }]
+    })
+  });
+
+  if (!fileResponse.ok) {
+    const errorText = await fileResponse.text();
+    throw new Error(`File API failed: ${fileResponse.status} - ${errorText}`);
+  }
+
+  const fileData = await fileResponse.json();
+  const fileInfo = fileData.data?.files?.[0];
+  
+  if (!fileInfo) {
+    throw new Error('No file info in response');
+  }
+
+  const fileId = fileInfo.file_id;
+  const uploadRequest = fileInfo.requests?.[0];
+  
+  if (!uploadRequest) {
+    throw new Error('No upload URL in response');
+  }
+
+  console.log(`Got file_id: ${fileId}, uploading to presigned URL...`);
+
+  // Step 2: Upload to presigned URL
+  const uploadHeaders: Record<string, string> = {};
+  if (uploadRequest.headers) {
+    for (const [key, value] of Object.entries(uploadRequest.headers)) {
+      uploadHeaders[key] = String(value);
+    }
+  }
+
+  const uploadResponse = await fetch(uploadRequest.url, {
+    method: uploadRequest.method || 'PUT',
+    headers: uploadHeaders,
+    body: imageBlob
+  });
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+  }
+
+  console.log('Image uploaded successfully to Perfect Corp');
+  return fileId;
 }
 
 serve(async (req) => {
@@ -43,12 +144,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const perfectApiKey = Deno.env.get('PERFECT_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch analysis
     const { data: analysis, error: fetchError } = await supabase
       .from('analyses')
-      .select('id, frontal_smile_url, frontal_rest_url')
+      .select('id, frontal_smile_url, frontal_rest_url, mode')
       .eq('id', analysisId)
       .single();
 
@@ -56,7 +158,7 @@ serve(async (req) => {
       throw new Error('Analysis not found');
     }
 
-    console.log(`Processing comprehensive facial analysis for ${analysisId}`);
+    console.log(`Processing analysis ${analysisId}, mode: ${analysis.mode}`);
 
     const imageUrl = analysis.frontal_rest_url || analysis.frontal_smile_url;
     
@@ -67,16 +169,18 @@ serve(async (req) => {
     let facialSymmetryScore = 85;
     let facialMidlineDeviation = 1.0;
     let facialThirdsRatio = { upper: 33, middle: 33, lower: 34 };
-    let skinAnalysisData: SkinAnalysisResult | null = null;
-    let facialAnalysisData: FacialAnalysisResult | null = null;
-    let apiSuccess = false;
+    let selectedParams: string[] = ['wrinkle', 'pore', 'texture', 'dark_circle_v2', 'firmness'];
+    let rationale = '';
+    let preAnalysisSuccess = false;
+    let perfectCorpSuccess = false;
+    let skinResults: PerfectCorpSkinResult[] = [];
 
+    // STEP 1: Pre-analysis with Lovable AI to determine relevant parameters
     if (lovableApiKey) {
       try {
-        console.log('Running comprehensive AI analysis with Lovable AI...');
+        console.log('Running pre-analysis with Lovable AI...');
         
-        // Combined facial structure + skin analysis using Gemini
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const preAnalysisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${lovableApiKey}`,
@@ -90,39 +194,40 @@ serve(async (req) => {
                 content: [
                   {
                     type: "text",
-                    text: `You are a professional dermatologist and facial aesthetics expert. Analyze this facial photo comprehensively.
+                    text: `You are a dermatologist analyzing a facial photo. Your task is to:
+1. Identify the TOP 5 most relevant skin concerns for this specific face
+2. Provide facial structure measurements
 
-Return ONLY valid JSON with these exact fields:
+Available skin parameters (choose exactly 5):
+- wrinkles: Fine lines and wrinkles
+- pores: Visible pore size
+- texture: Skin texture irregularities
+- acne: Active acne or breakouts
+- dark_circles: Under-eye darkness
+- spots/age_spots: Pigmentation and sun spots
+- firmness: Skin elasticity and sagging
+- hydration/moisture: Skin dryness
+- oiliness: Excess sebum production
+- radiance: Skin brightness and glow
+- redness: Inflammation or rosacea
+- eye_bags: Puffiness under eyes
+- droopy_eyelids: Eyelid drooping
 
+Return ONLY valid JSON:
 {
+  "recommended_params": ["param1", "param2", "param3", "param4", "param5"],
   "facial_analysis": {
-    "symmetry_score": <70-100, measure bilateral facial symmetry>,
-    "midline_deviation": <0-5 mm, deviation of facial midline>,
+    "symmetry_score": <70-100>,
+    "midline_deviation": <0-5 mm>,
     "thirds_ratio": {
-      "upper": <25-40, forehead to brow percentage>,
-      "middle": <25-40, brow to nose base percentage>,
-      "lower": <25-40, nose base to chin percentage>
+      "upper": <25-40>,
+      "middle": <25-40>,
+      "lower": <25-40>
     },
-    "face_shape": "<oval|round|square|heart|oblong>",
-    "eye_distance_ratio": <0.3-0.5, interpupillary distance ratio>,
-    "nose_ratio": <0.2-0.4, nose width to face width>,
-    "lip_ratio": <0.3-0.5, lip width to face width>
+    "face_shape": "<oval|round|square|heart|oblong>"
   },
-  "skin_analysis": {
-    "overall_score": <60-100, overall skin health>,
-    "wrinkle_score": <60-100, lower means more wrinkles>,
-    "spots_score": <60-100, lower means more spots/pigmentation>,
-    "texture_score": <60-100, skin texture smoothness>,
-    "dark_circles_score": <60-100, lower means more dark circles>,
-    "redness_score": <60-100, lower means more redness>,
-    "pores_score": <60-100, lower means more visible pores>,
-    "oiliness_score": <60-100, balance score>,
-    "skin_age": <estimated biological skin age in years>
-  }
-}
-
-Be clinically accurate. The thirds must sum to approximately 100.
-Consider lighting conditions and image quality in your assessment.`
+  "rationale": "Brief explanation of why these 5 parameters are most relevant for this face"
+}`
                   },
                   {
                     type: "image_url",
@@ -134,80 +239,194 @@ Consider lighting conditions and image quality in your assessment.`
           })
         });
 
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
+        if (preAnalysisResponse.ok) {
+          const aiData = await preAnalysisResponse.json();
           const content = aiData.choices?.[0]?.message?.content || '';
           
-          // Extract JSON from response
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-            try {
-              const parsed = JSON.parse(jsonMatch[0]);
-              
-              // Extract facial analysis
-              if (parsed.facial_analysis) {
-                facialAnalysisData = {
-                  symmetry_score: parsed.facial_analysis.symmetry_score ?? 85,
-                  midline_deviation: parsed.facial_analysis.midline_deviation ?? 1,
-                  thirds_ratio: parsed.facial_analysis.thirds_ratio ?? { upper: 33, middle: 33, lower: 34 },
-                  face_shape: parsed.facial_analysis.face_shape ?? 'oval',
-                  eye_distance_ratio: parsed.facial_analysis.eye_distance_ratio ?? 0.4,
-                  nose_ratio: parsed.facial_analysis.nose_ratio ?? 0.3,
-                  lip_ratio: parsed.facial_analysis.lip_ratio ?? 0.35
-                };
-                
-                facialSymmetryScore = facialAnalysisData.symmetry_score;
-                facialMidlineDeviation = facialAnalysisData.midline_deviation;
-                facialThirdsRatio = facialAnalysisData.thirds_ratio;
-                
-                console.log('Facial analysis extracted:', facialAnalysisData);
-              }
-              
-              // Extract skin analysis
-              if (parsed.skin_analysis) {
-                skinAnalysisData = {
-                  overall_score: parsed.skin_analysis.overall_score ?? 75,
-                  wrinkle_score: parsed.skin_analysis.wrinkle_score ?? 80,
-                  spots_score: parsed.skin_analysis.spots_score ?? 85,
-                  texture_score: parsed.skin_analysis.texture_score ?? 78,
-                  dark_circles_score: parsed.skin_analysis.dark_circles_score ?? 70,
-                  redness_score: parsed.skin_analysis.redness_score ?? 82,
-                  pores_score: parsed.skin_analysis.pores_score ?? 75,
-                  oiliness_score: parsed.skin_analysis.oiliness_score ?? 80,
-                  skin_age: parsed.skin_analysis.skin_age ?? 35
-                };
-                
-                console.log('Skin analysis extracted:', skinAnalysisData);
-              }
-              
-              apiSuccess = true;
-              console.log('AI analysis completed successfully');
-              
-            } catch (parseErr) {
-              console.error('Failed to parse AI response:', parseErr);
+            const parsed: PreAnalysisResult = JSON.parse(jsonMatch[0]);
+            
+            // Extract facial metrics
+            if (parsed.facial_analysis) {
+              facialSymmetryScore = parsed.facial_analysis.symmetry_score ?? 85;
+              facialMidlineDeviation = parsed.facial_analysis.midline_deviation ?? 1;
+              facialThirdsRatio = parsed.facial_analysis.thirds_ratio ?? { upper: 33, middle: 33, lower: 34 };
             }
+            
+            rationale = parsed.rationale || '';
+            
+            // Map recommended params to Perfect Corp format
+            if (parsed.recommended_params && Array.isArray(parsed.recommended_params)) {
+              const mappedParams = parsed.recommended_params
+                .slice(0, 5)
+                .map(p => PARAM_MAPPING[p.toLowerCase()] || p)
+                .filter(p => ALL_SKIN_PARAMS.includes(p as typeof ALL_SKIN_PARAMS[number]));
+              
+              if (mappedParams.length >= 3) {
+                selectedParams = mappedParams.slice(0, 5);
+                console.log('AI selected params:', selectedParams);
+              }
+            }
+            
+            preAnalysisSuccess = true;
+            console.log('Pre-analysis completed:', { selectedParams, rationale });
           }
         } else {
-          console.error('AI API request failed:', aiResponse.status);
+          console.error('Pre-analysis failed:', preAnalysisResponse.status);
         }
-      } catch (apiError) {
-        console.error('AI API error:', apiError);
+      } catch (err) {
+        console.error('Pre-analysis error:', err);
       }
-    } else {
-      console.warn('LOVABLE_API_KEY not configured');
     }
 
+    // STEP 2: Call Perfect Corp API with selected parameters
+    if (perfectApiKey) {
+      try {
+        console.log('Calling Perfect Corp Skin Analysis API...');
+        console.log('Using params:', selectedParams);
+        
+        // Download image from Supabase
+        console.log('Downloading image from Supabase...');
+        const { blob: imageBlob, contentType } = await downloadImage(imageUrl);
+        
+        // Upload to Perfect Corp
+        const fileId = await uploadToPerfectCorp(
+          perfectApiKey,
+          imageBlob,
+          contentType,
+          `analysis-${analysisId}.jpg`
+        );
+        
+        // Create skin analysis task with file_id
+        const taskResponse = await fetch('https://yce-api-01.makeupar.com/s2s/v2.0/task/skin-analysis', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${perfectApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            src_file_id: fileId,
+            dst_actions: selectedParams,
+            format: 'json'
+          })
+        });
+
+        if (!taskResponse.ok) {
+          const errorText = await taskResponse.text();
+          console.error('Perfect Corp task creation failed:', taskResponse.status, errorText);
+          throw new Error(`Perfect Corp API error: ${taskResponse.status}`);
+        }
+
+        const taskData = await taskResponse.json();
+        const taskId = taskData.data?.task_id;
+        
+        if (!taskId) {
+          console.error('No task_id in Perfect Corp response:', taskData);
+          throw new Error('No task_id returned');
+        }
+
+        console.log('Perfect Corp task created:', taskId);
+
+        // Poll for results (max 30 seconds)
+        let attempts = 0;
+        const maxAttempts = 15;
+        const pollInterval = 2000;
+
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          const statusResponse = await fetch(
+            `https://yce-api-01.makeupar.com/s2s/v2.0/task/skin-analysis/${taskId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${perfectApiKey}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (!statusResponse.ok) {
+            console.error('Status check failed:', statusResponse.status);
+            attempts++;
+            continue;
+          }
+
+          const statusData = await statusResponse.json();
+          const taskStatus = statusData.data?.task_status;
+          
+          console.log(`Poll attempt ${attempts + 1}: status = ${taskStatus}`);
+
+          if (taskStatus === 'success') {
+            // Extract results
+            const output = statusData.data?.results?.output;
+            if (output && Array.isArray(output)) {
+              skinResults = output.map((item: any) => ({
+                type: item.type,
+                ui_score: item.ui_score,
+                raw_score: item.raw_score,
+                mask_urls: item.mask_urls
+              }));
+              
+              // Also check for skin_age and overall score
+              const scoreInfo = statusData.data?.results?.score_info;
+              if (scoreInfo) {
+                skinResults.push({
+                  type: 'overall',
+                  ui_score: scoreInfo.all ?? 75,
+                  raw_score: scoreInfo.all ?? 75
+                });
+                if (scoreInfo.skin_age) {
+                  skinResults.push({
+                    type: 'skin_age',
+                    ui_score: scoreInfo.skin_age,
+                    raw_score: scoreInfo.skin_age
+                  });
+                }
+              }
+              
+              perfectCorpSuccess = true;
+              console.log('Perfect Corp analysis completed:', skinResults.length, 'metrics');
+            }
+            break;
+          } else if (taskStatus === 'error') {
+            console.error('Perfect Corp task failed:', statusData.data?.error);
+            break;
+          }
+
+          attempts++;
+        }
+
+        if (attempts >= maxAttempts && !perfectCorpSuccess) {
+          console.warn('Perfect Corp polling timed out');
+        }
+
+      } catch (err) {
+        console.error('Perfect Corp API error:', err);
+      }
+    } else {
+      console.warn('PERFECT_API_KEY not configured');
+    }
+
+    // STEP 3: Build comprehensive payload with tiered access
+    const isPremium = analysis.mode === 'premium';
+    
     // Normalize thirds to sum to 100
     const thirdsSum = facialThirdsRatio.upper + facialThirdsRatio.middle + facialThirdsRatio.lower;
-    if (thirdsSum > 0) {
+    if (thirdsSum > 0 && thirdsSum !== 100) {
       facialThirdsRatio = {
-        upper: (facialThirdsRatio.upper / thirdsSum) * 100,
-        middle: (facialThirdsRatio.middle / thirdsSum) * 100,
-        lower: (facialThirdsRatio.lower / thirdsSum) * 100
+        upper: Math.round((facialThirdsRatio.upper / thirdsSum) * 100),
+        middle: Math.round((facialThirdsRatio.middle / thirdsSum) * 100),
+        lower: Math.round((facialThirdsRatio.lower / thirdsSum) * 100)
       };
     }
 
-    // Build comprehensive raw payload
+    // Structure results for free vs premium
+    const freeMetrics = skinResults.slice(0, 1); // Only first metric for free
+    const premiumMetrics = skinResults; // All metrics for premium
+
+    // Get existing payload
     const { data: existingAnalysis } = await supabase
       .from('analyses')
       .select('raw_ai_payload')
@@ -220,14 +439,23 @@ Consider lighting conditions and image quality in your assessment.`
       ...existingPayload,
       perfect_corp: {
         analyzed_at: new Date().toISOString(),
-        api_success: apiSuccess,
-        skin_analysis: skinAnalysisData,
-        facial_analysis: facialAnalysisData,
-        provider: 'lovable_ai_gemini'
+        pre_analysis_success: preAnalysisSuccess,
+        perfect_corp_success: perfectCorpSuccess,
+        selected_params: selectedParams,
+        rationale: rationale,
+        skin_results: isPremium ? premiumMetrics : freeMetrics,
+        all_results: premiumMetrics, // Store all for upgrade scenario
+        provider: perfectCorpSuccess ? 'perfect_corp' : 'lovable_ai_fallback'
+      },
+      facial_analysis: {
+        symmetry_score: facialSymmetryScore,
+        midline_deviation: facialMidlineDeviation,
+        thirds_ratio: facialThirdsRatio,
+        provider: 'lovable_ai'
       }
     };
 
-    // Update analysis with comprehensive results
+    // Update analysis with results
     const { error: updateError } = await supabase
       .from('analyses')
       .update({
@@ -242,15 +470,22 @@ Consider lighting conditions and image quality in your assessment.`
       throw updateError;
     }
 
-    console.log(`Comprehensive facial analysis completed for ${analysisId}, API success: ${apiSuccess}`);
+    console.log(`Analysis completed for ${analysisId}:`, {
+      preAnalysis: preAnalysisSuccess,
+      perfectCorp: perfectCorpSuccess,
+      metricsCount: skinResults.length,
+      mode: analysis.mode
+    });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         analysisId,
-        apiSuccess,
-        skinAnalysis: skinAnalysisData !== null,
-        facialAnalysis: facialAnalysisData !== null
+        preAnalysisSuccess,
+        perfectCorpSuccess,
+        selectedParams,
+        metricsCount: skinResults.length,
+        mode: analysis.mode
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
