@@ -11,6 +11,7 @@ import Scan from "./pages/Scan";
 import Result from "./pages/Result";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import BookingConfirmation from "./pages/BookingConfirmation";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/scan" element={<Scan />} />
               <Route path="/result/:id" element={<Result />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/booking-confirmation" element={<BookingConfirmation />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
