@@ -1,45 +1,38 @@
-import { Check, Gift, Crown, Sparkles, Brain, Smile, ScanFace } from 'lucide-react';
+import { Check, Gift, Crown, Sparkles, TrendingUp, Smile, ScanFace, Box, FileText, Ticket } from 'lucide-react';
 
 const freeBenefits = [
   'Puntuación de sonrisa',
   'Simetría facial general',
   'Simulación de sonrisa interactiva',
+  'Mapa de análisis facial',
 ];
 
-const premiumAnalysis = [
+const premiumFeatures = [
   {
-    category: 'Análisis Facial',
-    icon: ScanFace,
-    items: [
-      '246 puntos biométricos faciales',
-      'Proporciones áureas y tercios faciales',
-      'Línea media y concordancias',
-    ],
+    icon: TrendingUp,
+    title: 'Métricas Detalladas',
+    description: 'Proporciones faciales, tercios, línea media y más',
   },
   {
-    category: 'Análisis de Sonrisa',
-    icon: Smile,
-    items: [
-      'Evaluación boca, labios y dientes',
-      'Línea de sonrisa vs línea facial',
-      'Corredores bucales y exposición gingival',
-    ],
+    icon: Box,
+    title: 'Modelo 3D Interactivo',
+    description: 'Visualiza tu rostro en 3D desde cualquier ángulo',
   },
   {
-    category: 'Motor ArmonIA™',
-    icon: Brain,
-    items: [
-      'Análisis integrador dentofacial',
-      '24+ factores personalizados (edad, hábitos...)',
-      'Pre-análisis de armonía facial único',
-    ],
+    icon: Sparkles,
+    title: 'Recomendaciones IA',
+    description: 'Sugerencias personalizadas basadas en tu análisis',
   },
-];
-
-const premiumExtras = [
-  'Modelo 3D interactivo de tu rostro',
-  'Informe PDF profesional descargable',
-  '20% dcto. evaluación presencial Clínica Miro',
+  {
+    icon: FileText,
+    title: 'Informe PDF Profesional',
+    description: 'Descarga y comparte tu análisis completo',
+  },
+  {
+    icon: Ticket,
+    title: '20% Dcto. Clínica Miro',
+    description: 'Cupón para evaluación presencial profesional',
+  },
 ];
 
 export default function BenefitsSection() {
@@ -62,7 +55,7 @@ export default function BenefitsSection() {
           <div className="rounded-2xl bg-white/5 border border-white/10 p-5 text-left">
             <div className="flex items-center gap-2 mb-4">
               <Gift className="w-5 h-5 text-emerald-400" />
-              <span className="text-sm font-medium text-emerald-400">Informe Gratis</span>
+              <span className="text-sm font-medium text-emerald-400">Análisis Gratis</span>
               <span className="ml-auto text-lg font-semibold text-white">$0</span>
             </div>
             <div className="space-y-2">
@@ -83,48 +76,34 @@ export default function BenefitsSection() {
             
             <div className="flex items-center gap-2 mb-6">
               <Crown className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Informe Premium</span>
+              <span className="text-sm font-medium text-primary">Análisis Premium</span>
               <span className="ml-auto text-lg font-semibold text-white">$5.990</span>
             </div>
 
-            {/* Analysis Categories */}
-            <div className="space-y-5 mb-6">
-              {premiumAnalysis.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <section.icon className="w-4 h-4 text-primary/70" />
-                    <span className="text-xs font-medium text-primary/90">{section.category}</span>
+            {/* All free benefits */}
+            <div className="mb-4 pb-4 border-b border-primary/20">
+              <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Todo lo gratis, más:</p>
+            </div>
+
+            {/* Premium Features */}
+            <div className="space-y-4">
+              {premiumFeatures.map((feature, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 shrink-0">
+                    <feature.icon className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="space-y-1.5 pl-6">
-                    {section.items.map((item, itemIndex) => (
-                      <div key={itemIndex} className="flex items-start gap-2">
-                        <Check className="w-3.5 h-3.5 text-primary/60 shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-white/70 leading-relaxed">{item}</span>
-                      </div>
-                    ))}
+                  <div>
+                    <p className="text-sm font-medium text-white/90">{feature.title}</p>
+                    <p className="text-[11px] text-white/50">{feature.description}</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-5" />
-
-            {/* Extras */}
-            <div className="space-y-2">
-              {premiumExtras.map((extra, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="text-xs text-white/80">{extra}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* ArmonIA tagline */}
+            {/* Value tagline */}
             <div className="mt-6 pt-4 border-t border-primary/20">
-              <p className="text-center text-[11px] text-white/50 italic">
-                De <span className="text-white/70">Simetría</span> a <span className="text-primary font-medium">ArmonIA</span> — 
-                tu análisis único y personalizado
+              <p className="text-center text-[11px] text-white/50">
+                Pago único · Sin suscripciones · Resultados inmediatos
               </p>
             </div>
           </div>

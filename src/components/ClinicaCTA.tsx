@@ -28,11 +28,11 @@ export default function ClinicaCTA() {
             Siguiente Paso
           </span>
           <h3 className="text-xl font-display font-semibold text-white mb-3">
-            Programa ArmonIA Presencial
+            Evaluación Presencial
           </h3>
           <p className="text-sm text-white/60 leading-relaxed">
-            Completa tu transformación con un análisis clínico profesional 
-            en Clínica Miro.
+            Lleva tu análisis al siguiente nivel con una evaluación 
+            profesional en Clínica Miro.
           </p>
         </div>
 

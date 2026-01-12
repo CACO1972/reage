@@ -10,31 +10,31 @@ const premiumFeatures = [
     icon: Box,
     title: 'Modelo 3D Interactivo',
     description: 'Visualiza y rota tu rostro en 3D',
-    preview: 'Tecnología WaveSpeed AI'
+    preview: 'Vista 360° de tu rostro'
   },
   {
     icon: Brain,
-    title: 'Análisis IA Completo',
-    description: '15+ métricas faciales y dentales',
-    preview: 'Proporciones áureas, tercios faciales...'
+    title: 'Métricas Detalladas',
+    description: 'Análisis completo de proporciones',
+    preview: 'Tercios faciales, línea media...'
   },
   {
     icon: FileText,
-    title: 'Reporte PDF Descargable',
-    description: 'Documento profesional para tu dentista',
+    title: 'Reporte PDF',
+    description: 'Documento profesional descargable',
     preview: 'Incluye gráficos y métricas'
   },
   {
     icon: Share2,
-    title: 'Compartir en Redes',
-    description: 'Comparte tu análisis en RRSS',
-    preview: 'Instagram, WhatsApp, Facebook'
+    title: 'Compartir Resultados',
+    description: 'Comparte tu análisis fácilmente',
+    preview: 'WhatsApp, correo, redes'
   },
   {
     icon: QrCode,
-    title: 'Cupón con QR',
-    description: '25% descuento en Clínica Miro',
-    preview: 'Escaneable en consulta'
+    title: '20% Dcto. Clínica Miro',
+    description: 'Cupón para evaluación presencial',
+    preview: 'Válido por 3 meses'
   },
   {
     icon: Gift,
