@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAudio } from '@/contexts/AudioContext';
+import { useElevenLabs } from '@/hooks/useElevenLabs';
 import logoSimetria from '@/assets/logo-simetria.png';
 
 interface SplashScreenProps {
@@ -11,6 +12,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [phase, setPhase] = useState<'logo' | 'tagline' | 'exit'>('logo');
   const { loadAudio, play, isLoaded } = useAudio();
+  const { playSFX } = useElevenLabs({ volume: 0.4 });
+  const sfxPlayedRef = useRef(false);
 
   useEffect(() => {
     loadAudio();
@@ -21,6 +24,19 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       play(0.15);
     }
   }, [isLoaded, play]);
+
+  // Play subtle SFX on mount - elegant whoosh/shimmer
+  useEffect(() => {
+    if (!sfxPlayedRef.current) {
+      sfxPlayedRef.current = true;
+      // Use a subtle, elegant sound - fails gracefully if API not available
+      playSFX('Subtle elegant digital shimmer whoosh, soft and luxurious, high-end brand reveal sound', 2)
+        .catch(() => {
+          // Silently fail - audio is optional enhancement
+          console.log('SFX not available, continuing without sound');
+        });
+    }
+  }, [playSFX]);
 
   useEffect(() => {
     // Phase 1: Logo appears (0-1.2s)
