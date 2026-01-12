@@ -426,6 +426,48 @@ Return ONLY valid JSON:
     const freeMetrics = skinResults.slice(0, 1); // Only first metric for free
     const premiumMetrics = skinResults; // All metrics for premium
 
+    // Build skin_analysis object with mapped keys for the frontend
+    const skinAnalysis: Record<string, number | undefined> = {};
+    const displayMetrics = isPremium ? premiumMetrics : freeMetrics;
+    
+    for (const result of displayMetrics) {
+      switch (result.type) {
+        case 'wrinkle':
+          skinAnalysis.wrinkle_score = result.ui_score;
+          break;
+        case 'pore':
+          skinAnalysis.pores_score = result.ui_score;
+          break;
+        case 'texture':
+          skinAnalysis.texture_score = result.ui_score;
+          break;
+        case 'dark_circle_v2':
+          skinAnalysis.dark_circles_score = result.ui_score;
+          break;
+        case 'age_spot':
+          skinAnalysis.spots_score = result.ui_score;
+          break;
+        case 'redness':
+          skinAnalysis.redness_score = result.ui_score;
+          break;
+        case 'oiliness':
+          skinAnalysis.oiliness_score = result.ui_score;
+          break;
+        case 'firmness':
+          skinAnalysis.firmness_score = result.ui_score;
+          break;
+        case 'eye_bag':
+          skinAnalysis.eye_bags_score = result.ui_score;
+          break;
+        case 'overall':
+          skinAnalysis.overall_score = result.ui_score;
+          break;
+        case 'skin_age':
+          skinAnalysis.skin_age = result.ui_score;
+          break;
+      }
+    }
+
     // Get existing payload
     const { data: existingAnalysis } = await supabase
       .from('analyses')
@@ -441,9 +483,11 @@ Return ONLY valid JSON:
         analyzed_at: new Date().toISOString(),
         pre_analysis_success: preAnalysisSuccess,
         perfect_corp_success: perfectCorpSuccess,
+        api_success: perfectCorpSuccess,
         selected_params: selectedParams,
         rationale: rationale,
-        skin_results: isPremium ? premiumMetrics : freeMetrics,
+        skin_analysis: skinAnalysis, // Structured for frontend
+        skin_results: isPremium ? premiumMetrics : freeMetrics, // Raw results
         all_results: premiumMetrics, // Store all for upgrade scenario
         provider: perfectCorpSuccess ? 'perfect_corp' : 'lovable_ai_fallback'
       },
