@@ -12,11 +12,11 @@ const emailSchema = z.string().email('Email inválido');
 const passwordSchema = z.string().min(6, 'Mínimo 6 caracteres');
 
 export default function Auth() {
-  const [mode, setMode] = useState<'login' | 'signup' | 'magic'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, signInWithMagicLink, user } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -34,13 +34,17 @@ export default function Auth() {
       // Validate email
       emailSchema.parse(email);
 
-      if (mode === 'magic') {
-        const { error } = await signInWithMagicLink(email);
+      if (mode === 'forgot') {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth`,
+        });
         if (error) throw error;
         toast({
-          title: '¡Enlace enviado!',
-          description: 'Revisa tu correo para acceder.',
+          title: '¡Correo enviado!',
+          description: 'Revisa tu email para restablecer tu contraseña.',
         });
+        setMode('login');
         return;
       }
 
@@ -131,9 +135,20 @@ export default function Auth() {
               </div>
             </div>
 
-            {mode !== 'magic' && (
+            {mode !== 'forgot' && (
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="password">Contraseña</Label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => setMode('forgot')}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      ¿Olvidaste tu clave?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -159,22 +174,24 @@ export default function Auth() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear Cuenta' : 'Enviar Enlace'}
+                  {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear Cuenta' : 'Recuperar Clave'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => setMode(mode === 'magic' ? 'login' : 'magic')}
-              className="text-sm text-primary hover:underline"
-            >
-              {mode === 'magic' ? 'Usar contraseña' : 'Acceder con enlace mágico'}
-            </button>
-          </div>
+          {mode === 'forgot' && (
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="text-sm text-primary hover:underline"
+              >
+                Volver a iniciar sesión
+              </button>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6 animate-fade-in">
