@@ -346,6 +346,9 @@ export default function Result() {
                   <FaceAnalysisOverlay 
                     imageUrl={analysis.frontal_rest_url}
                     symmetryScore={analysis.facial_symmetry_score || undefined}
+                    facialThirds={analysis.facial_thirds_ratio}
+                    midlineDeviation={analysis.midline_deviation_mm || 0}
+                    gingivalDisplay={analysis.gingival_display_mm || 0}
                   />
                 </motion.div>
               )}
