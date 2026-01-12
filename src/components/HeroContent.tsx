@@ -70,7 +70,7 @@ export default function HeroContent() {
 
       {/* Microcopy */}
       <p className="animate-fade-up mt-8 text-xs text-white/40" style={{ animationDelay: '0.5s' }}>
-        Pago único · Sin suscripción
+        Informe gratis disponible · Premium desde $5.990
       </p>
     </div>
   );
