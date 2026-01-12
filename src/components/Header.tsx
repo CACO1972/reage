@@ -1,19 +1,35 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Menu, X, LogIn, User } from 'lucide-react';
+import { Menu, X, User, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import logoSimetria from '@/assets/logo-simetria.png';
 
 export default function Header() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
     setMobileMenuOpen(false);
+  };
+
+  const handleStartAnalysis = async () => {
+    setLoading(true);
+    try {
+      if (!user) {
+        await signInAnonymously();
+      }
+      navigate('/scan');
+      setMobileMenuOpen(false);
+    } catch (error) {
+      console.error('Error starting analysis:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const navLinks = [
@@ -68,19 +84,22 @@ export default function Header() {
                 </Button>
               </>
             ) : (
-              <>
-                <Link to="/auth">
-                  <Button variant="ghost" size="sm" className="text-white/70 hover:text-white gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Iniciar sesión
-                  </Button>
-                </Link>
-                <Link to="/auth">
-                  <Button variant="default" size="sm" className="bg-primary/90 hover:bg-primary">
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleStartAnalysis}
+                disabled={loading}
+                className="bg-primary/90 hover:bg-primary gap-2"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
                     Comenzar gratis
-                  </Button>
-                </Link>
-              </>
+                  </>
+                )}
+              </Button>
             )}
           </div>
 
@@ -127,13 +146,22 @@ export default function Header() {
                   </Button>
                 </>
               ) : (
-                <>
-                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="default" size="sm" className="w-full bg-primary/90 hover:bg-primary">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleStartAnalysis}
+                  disabled={loading}
+                  className="w-full bg-primary/90 hover:bg-primary gap-2"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
                       Comenzar gratis
-                    </Button>
-                  </Link>
-                </>
+                    </>
+                  )}
+                </Button>
               )}
             </div>
           </div>
