@@ -32,6 +32,8 @@ export default function Scan() {
     isCameraOpen,
     isRequestingCamera,
     isProcessing,
+    isAdaptingImage,
+    adaptedMessage,
     error: cameraError,
     lowResWarning,
     restPhoto,
@@ -46,7 +48,7 @@ export default function Scan() {
     resetFileInput,
     readyForAnalysis,
     setCurrentMode,
-  } = useCameraCapture({ maxDownscalePx: 2200, lowResWarningPx: 800 });
+  } = useCameraCapture({ maxDownscalePx: 2200, lowResWarningPx: 800, enableSmartCrop: true });
 
   const [isUploading, setIsUploading] = useState(false);
   const [cameraPermissionRequested, setCameraPermissionRequested] = useState(false);
@@ -301,6 +303,25 @@ export default function Scan() {
                   Cancelar
                 </Button>
               </div>
+            ) : isProcessing || isAdaptingImage ? (
+              /* Processing/Adapting overlay */
+              <div className="space-y-3">
+                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+                  <div className="text-center space-y-4 px-6">
+                    <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                    <div>
+                      <p className="text-white font-medium">
+                        {isAdaptingImage ? '🧠 Analizando imagen con IA...' : 'Procesando...'}
+                      </p>
+                      {isAdaptingImage && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Adaptando automáticamente para análisis óptimo
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : currentPhoto ? (
               /* Photo preview with actions */
               <div className="space-y-3">
@@ -313,7 +334,31 @@ export default function Scan() {
                   <div className="absolute top-3 right-3">
                     <CheckCircle2 className="w-8 h-8 text-green-500 drop-shadow-lg" />
                   </div>
+                  {/* Show adapted badge if image was AI-adapted */}
+                  {currentPhoto.wasAdapted && (
+                    <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Adaptada con IA
+                    </div>
+                  )}
                 </div>
+                
+                {/* Adapted message */}
+                <AnimatePresence>
+                  {currentPhoto.wasAdapted && adaptedMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-3 rounded-xl bg-primary/10 border border-primary/30 flex items-start gap-2"
+                    >
+                      <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                      <p className="text-xs text-primary">
+                        {adaptedMessage}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
                 {/* Low resolution warning */}
                 <AnimatePresence>
