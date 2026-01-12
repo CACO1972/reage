@@ -2,17 +2,24 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useState } from 'react';
 import logoSimetria from '@/assets/logo-simetria.png';
 
 export default function HeroContent() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInAnonymously } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  const handleCTA = () => {
+  const handleCTA = async () => {
     if (user) {
       navigate('/scan');
     } else {
-      navigate('/auth');
+      setLoading(true);
+      const { error } = await signInAnonymously();
+      setLoading(false);
+      if (!error) {
+        navigate('/scan');
+      }
     }
   };
 
@@ -71,9 +78,16 @@ export default function HeroContent() {
           size="lg" 
           className="group text-base px-10 py-7"
           onClick={handleCTA}
+          disabled={loading}
         >
-          Comenzar mi Análisis
-          <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <>
+              Comenzar mi Análisis
+              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </>
+          )}
         </Button>
       </div>
 
