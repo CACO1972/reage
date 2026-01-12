@@ -48,16 +48,16 @@ export default function Scan() {
   } = useCameraCapture({ maxDownscalePx: 2200, lowResWarningPx: 800 });
 
   const [isUploading, setIsUploading] = useState(false);
+  const [cameraPermissionRequested, setCameraPermissionRequested] = useState(false);
   
   // File input ref for allowing re-select of same file
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // Best effort auto-open camera
-  useEffect(() => {
-    if (!authLoading && user && !isCameraOpen && !restPhoto && !smilePhoto) {
-      openCamera();
-    }
-  }, [authLoading, user, isCameraOpen, restPhoto, smilePhoto, openCamera]);
+  // Handle camera open with permission tracking
+  const handleOpenCamera = async () => {
+    setCameraPermissionRequested(true);
+    await openCamera();
+  };
 
   // Redirect to auth if not logged in
   if (!authLoading && !user) {
@@ -358,12 +358,12 @@ export default function Scan() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={openCamera}
+                    onClick={handleOpenCamera}
                     className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 transition-colors"
                   >
                     <Camera className="w-10 h-10 mb-2 text-primary" />
-                    <span className="font-medium">Tomar foto</span>
-                    <span className="text-xs text-muted-foreground mt-0.5">Cámara frontal</span>
+                    <span className="font-medium">Habilitar cámara</span>
+                    <span className="text-xs text-muted-foreground mt-0.5">Modo selfie</span>
                   </button>
 
                   <label className="border border-border/50 rounded-2xl py-8 flex flex-col items-center justify-center text-sm text-foreground hover:bg-muted/50 cursor-pointer transition-colors">
