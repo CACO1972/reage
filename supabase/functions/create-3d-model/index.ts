@@ -83,7 +83,7 @@ serve(async (req) => {
     }
 
     try {
-      // Step 1: Create Tripo3D image-to-3d task
+      // Step 1: Create Tripo3D image-to-3d task via WaveSpeed
       console.log('Creating Tripo3D task with WaveSpeed API...');
       
       const createTaskResponse = await fetch(`${WAVESPEED_API_BASE}/tripo3d/v2.5/image-to-3d`, {
@@ -94,7 +94,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           image: imageUrl,
-          face_limit: 50000, // Optimized for web viewing
+          face_limit: 50000,
           texture: true,
           pbr: true
         })
@@ -107,14 +107,17 @@ serve(async (req) => {
       }
 
       const taskData = await createTaskResponse.json();
-      const taskId = taskData.data?.task_id || taskData.task_id;
+      
+      // WaveSpeed returns task_id in data.id, not data.task_id
+      const taskId = taskData.data?.id || taskData.data?.task_id || taskData.task_id;
+      const statusUrl = taskData.data?.urls?.get;
 
       if (!taskId) {
-        console.error('No task ID in response:', taskData);
+        console.error('No task ID in response:', JSON.stringify(taskData));
         throw new Error('No task ID returned from WaveSpeed');
       }
 
-      console.log('Tripo3D task created:', taskId);
+      console.log('Tripo3D task created:', taskId, 'Status URL:', statusUrl);
 
       // Save task ID for polling
       await supabase
@@ -126,15 +129,16 @@ serve(async (req) => {
         })
         .eq('analysis_id', analysisId);
 
-      // Step 2: Poll for completion (max 2 minutes in edge function)
+      // Step 2: Poll for completion using the status URL or construct it
       let attempts = 0;
       const maxAttempts = 20;
       let modelUrl: string | null = null;
+      const pollUrl = statusUrl || `${WAVESPEED_API_BASE}/predictions/${taskId}/result`;
 
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 6000)); // 6 second intervals
         
-        const statusResponse = await fetch(`${WAVESPEED_API_BASE}/tripo3d/v2.5/task/${taskId}`, {
+        const statusResponse = await fetch(pollUrl, {
           headers: { 'Authorization': `Bearer ${wavespeedApiKey}` }
         });
 
@@ -144,18 +148,26 @@ serve(async (req) => {
           
           console.log(`Tripo3D task status (${attempts + 1}/${maxAttempts}):`, status);
 
-          if (status === 'completed' || status === 'success') {
-            modelUrl = statusData.data?.model_url || statusData.model_url || 
-                       statusData.data?.glb_url || statusData.glb_url ||
-                       statusData.data?.result?.model_url;
+          if (status === 'completed' || status === 'success' || status === 'succeeded') {
+            // WaveSpeed returns model in outputs array or direct url fields
+            const outputs = statusData.data?.outputs || [];
+            modelUrl = outputs[0]?.url || 
+                       statusData.data?.model_url || 
+                       statusData.data?.glb_url ||
+                       statusData.data?.result?.model_url ||
+                       statusData.model_url;
             
             if (modelUrl) {
               console.log('3D model generated successfully:', modelUrl);
               break;
             }
           } else if (status === 'failed' || status === 'error') {
-            throw new Error('Tripo3D task failed');
+            const errorMsg = statusData.data?.error || statusData.error || 'Unknown error';
+            console.error('Tripo3D task failed:', errorMsg);
+            throw new Error(`Tripo3D task failed: ${errorMsg}`);
           }
+        } else {
+          console.warn(`Status check failed: ${statusResponse.status}`);
         }
         attempts++;
       }
