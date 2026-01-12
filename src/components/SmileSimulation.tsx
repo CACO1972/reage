@@ -1,200 +1,237 @@
-import { useState, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, GripVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Loader2, AlertCircle, Wand2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface SmileSimulationProps {
   restImageUrl: string;
-  smileImageUrl: string;
+  smileImageUrl: string | null;
+  analysisId?: string;
 }
 
-export function SmileSimulation({ restImageUrl, smileImageUrl }: SmileSimulationProps) {
-  const [clipPosition, setClipPosition] = useState(50); // 0-100, percentage from left
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
+export function SmileSimulation({ restImageUrl, smileImageUrl, analysisId }: SmileSimulationProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedSmile, setGeneratedSmile] = useState<string | null>(smileImageUrl);
+  const [showComparison, setShowComparison] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleMove = useCallback((clientX: number) => {
-    if (!containerRef.current || !isDragging.current) return;
+  useEffect(() => {
+    setGeneratedSmile(smileImageUrl);
+  }, [smileImageUrl]);
+
+  const generateSmileWithAI = async () => {
+    if (!analysisId) return;
     
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    setClipPosition(percentage);
-  }, []);
+    setIsGenerating(true);
+    setError(null);
 
-  const handleStart = useCallback((clientX: number) => {
-    isDragging.current = true;
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setClipPosition(percentage);
-    }
-  }, []);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('generate-smile-simulation', {
+        body: { analysisId, restImageUrl }
+      });
 
-  const handleEnd = useCallback(() => {
-    isDragging.current = false;
-  }, []);
-
-  // Mouse events
-  const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleStart(e.clientX);
-  };
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    handleMove(e.clientX);
-  };
-
-  const onMouseUp = () => handleEnd();
-  const onMouseLeave = () => handleEnd();
-
-  // Touch events
-  const onTouchStart = (e: React.TouchEvent) => {
-    handleStart(e.touches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (isDragging.current) {
-      handleMove(e.touches[0].clientX);
+      if (invokeError) throw invokeError;
+      
+      if (data?.smileImageUrl) {
+        setGeneratedSmile(data.smileImageUrl);
+        toast({
+          title: '✨ Simulación generada',
+          description: 'Tu sonrisa ha sido simulada con IA'
+        });
+      } else if (data?.error) {
+        throw new Error(data.error);
+      }
+    } catch (err: any) {
+      console.error('Generation error:', err);
+      setError(err.message || 'Error al generar simulación');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err.message || 'No se pudo generar la simulación'
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const onTouchEnd = () => handleEnd();
-
-  const isMoreSmile = clipPosition > 50;
-
-  return (
-    <div className="space-y-4">
-      {/* Comparison slider container */}
-      <div 
-        ref={containerRef}
-        className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-card cursor-ew-resize select-none touch-none"
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseLeave}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        {/* Smile image (full background) */}
-        <div className="absolute inset-0">
-          <img 
-            src={smileImageUrl} 
-            alt="Sonrisa"
-            className="w-full h-full object-cover pointer-events-none"
-            draggable={false}
-          />
-        </div>
-        
-        {/* Rest image (clipped from left) */}
-        <div 
-          className="absolute inset-0 overflow-hidden"
-          style={{ width: `${clipPosition}%` }}
-        >
+  // If no smile image yet, show generation UI
+  if (!generatedSmile) {
+    return (
+      <div className="space-y-4">
+        <div className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-card">
           <img 
             src={restImageUrl} 
-            alt="Rostro en reposo"
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            style={{ 
-              width: containerRef.current ? `${containerRef.current.offsetWidth}px` : '100%',
-              maxWidth: 'none'
-            }}
-            draggable={false}
+            alt="Tu rostro"
+            className="w-full h-full object-cover"
           />
-        </div>
-
-        {/* Divider line with handle */}
-        <div 
-          className="absolute top-0 bottom-0 w-1 -ml-0.5 z-10"
-          style={{ left: `${clipPosition}%` }}
-        >
-          {/* Glowing line */}
-          <div className="absolute inset-0 bg-white shadow-[0_0_20px_rgba(255,255,255,0.8)]" />
           
-          {/* Handle */}
-          <motion.div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 
-                       w-12 h-12 rounded-full bg-white/95 backdrop-blur-sm
-                       flex items-center justify-center shadow-xl border-2 border-primary/30"
-            animate={{ 
-              scale: isDragging.current ? 1.1 : 1,
-              boxShadow: isDragging.current 
-                ? '0 0 30px rgba(212, 168, 83, 0.6)' 
-                : '0 10px 40px rgba(0, 0, 0, 0.4)'
-            }}
-            transition={{ duration: 0.2 }}
-          >
-            <GripVertical className="w-5 h-5 text-primary" />
-          </motion.div>
-
-          {/* Decorative arrows */}
-          <div className="absolute top-1/2 left-1/2 -translate-y-1/2 flex items-center pointer-events-none">
-            <motion.span 
-              className="absolute -left-8 text-white/80 text-lg font-bold"
-              animate={{ x: [-2, -6, -2] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            >
-              ‹
-            </motion.span>
-            <motion.span 
-              className="absolute left-4 text-white/80 text-lg font-bold"
-              animate={{ x: [2, 6, 2] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            >
-              ›
-            </motion.span>
+          {/* Overlay for generation */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col items-center justify-end p-6">
+            {isGenerating ? (
+              <motion.div 
+                className="text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className="relative w-20 h-20 mx-auto mb-4">
+                  <Loader2 className="w-20 h-20 text-primary animate-spin" />
+                  <Sparkles className="w-8 h-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <p className="text-white font-medium mb-1">Generando sonrisa con IA...</p>
+                <p className="text-white/60 text-sm">Esto puede tomar unos segundos</p>
+              </motion.div>
+            ) : error ? (
+              <motion.div 
+                className="text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+                <p className="text-white/80 text-sm mb-3">{error}</p>
+                <Button onClick={generateSmileWithAI} variant="outline" size="sm">
+                  Reintentar
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div 
+                className="text-center w-full"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Wand2 className="w-10 h-10 text-primary mx-auto mb-3" />
+                <h4 className="text-white font-semibold mb-2">Simulación de Sonrisa</h4>
+                <p className="text-white/60 text-sm mb-4">
+                  Nuestra IA generará una simulación realista de cómo podría lucir tu sonrisa
+                </p>
+                <Button 
+                  onClick={generateSmileWithAI}
+                  className="w-full"
+                  disabled={!analysisId}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generar Simulación IA
+                </Button>
+              </motion.div>
+            )}
           </div>
         </div>
-
-        {/* Labels */}
-        <motion.div 
-          className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-background/80 backdrop-blur-sm border border-muted/30"
-          animate={{ opacity: clipPosition > 15 ? 1 : 0 }}
-        >
-          <span className="text-sm font-medium">😐 Reposo</span>
-        </motion.div>
-
-        <motion.div 
-          className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-primary/20 backdrop-blur-sm border border-primary/40"
-          animate={{ opacity: clipPosition < 85 ? 1 : 0 }}
-        >
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Sonrisa</span>
-          </div>
-        </motion.div>
-
-        {/* Bottom gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-
-        {/* Instruction text */}
-        <motion.div 
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <p className="text-white/90 text-sm font-medium drop-shadow-lg">
-            ← Desliza para comparar →
-          </p>
-        </motion.div>
       </div>
+    );
+  }
+
+  // Show comparison between rest and smile
+  return (
+    <div className="space-y-4">
+      {/* Toggle buttons */}
+      <div className="flex gap-2 p-1 rounded-xl bg-muted/50">
+        <button
+          onClick={() => setShowComparison(true)}
+          className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+            showComparison 
+              ? 'bg-primary text-primary-foreground shadow' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Comparación
+        </button>
+        <button
+          onClick={() => setShowComparison(false)}
+          className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+            !showComparison 
+              ? 'bg-primary text-primary-foreground shadow' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Solo Sonrisa
+        </button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {showComparison ? (
+          <motion.div
+            key="comparison"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-2 gap-3"
+          >
+            {/* Rest image */}
+            <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
+              <img 
+                src={restImageUrl} 
+                alt="Reposo"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">😐</span>
+                  <span className="text-white text-sm font-medium">Reposo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Smile image */}
+            <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
+              <img 
+                src={generatedSmile} 
+                alt="Sonrisa simulada"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-primary text-sm font-medium">Simulación IA</span>
+                </div>
+              </div>
+              {/* AI badge */}
+              <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-primary/20 backdrop-blur-sm border border-primary/40">
+                <span className="text-[10px] font-medium text-primary">✨ IA</span>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="smile-only"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="relative rounded-2xl overflow-hidden aspect-[3/4]"
+          >
+            <img 
+              src={generatedSmile} 
+              alt="Sonrisa simulada"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-primary/20 backdrop-blur-sm border border-primary/40">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Simulación IA</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+              <p className="text-white text-center text-sm">
+                Proyección de sonrisa generada con inteligencia artificial
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Info card */}
       <div className="glass rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold text-white">Comparador de Sonrisa</h4>
-            <p className="text-sm text-muted-foreground">
-              {isMoreSmile ? 'Visualiza tu potencial de sonrisa' : 'Observa tu expresión natural'}
-            </p>
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Sparkles className="w-5 h-5 text-primary" />
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-            <div className={`w-2 h-2 rounded-full ${isMoreSmile ? 'bg-primary' : 'bg-muted-foreground'}`} />
-            <span className="text-sm font-medium">
-              {Math.round(100 - clipPosition)}% sonrisa
-            </span>
+          <div>
+            <h4 className="font-semibold text-white mb-1">Simulación con IA</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Esta proyección es orientativa y muestra una aproximación de cómo podría lucir tu sonrisa. 
+              Los resultados reales pueden variar según el tratamiento.
+            </p>
           </div>
         </div>
       </div>

@@ -325,8 +325,8 @@ export default function Result() {
                 />
               </motion.div>
 
-              {/* Smile Simulation with Fade */}
-              {analysis.frontal_rest_url && analysis.frontal_smile_url && (
+              {/* Smile Simulation - Always show if rest image exists */}
+              {analysis.frontal_rest_url && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -334,11 +334,12 @@ export default function Result() {
                 >
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    Simulación de Sonrisa
+                    Simulación de Sonrisa IA
                   </h3>
                   <SmileSimulation
                     restImageUrl={analysis.frontal_rest_url}
                     smileImageUrl={analysis.frontal_smile_url}
+                    analysisId={analysis.id}
                   />
                 </motion.div>
               )}
@@ -360,6 +361,8 @@ export default function Result() {
                     facialThirds={analysis.facial_thirds_ratio}
                     midlineDeviation={analysis.midline_deviation_mm || 0}
                     gingivalDisplay={analysis.gingival_display_mm || 0}
+                    buccalCorridorLeft={analysis.buccal_corridor_left || 0}
+                    buccalCorridorRight={analysis.buccal_corridor_right || 0}
                   />
                 </motion.div>
               )}
