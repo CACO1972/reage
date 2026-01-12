@@ -59,6 +59,11 @@ export default function HeroContent() {
         <span className="text-white/80 font-medium">Descubre tu potencial facial.</span>
       </p>
 
+      {/* Inclusivity message */}
+      <p className="animate-fade-up mt-4 text-sm text-primary font-medium tracking-wide" style={{ animationDelay: '0.25s' }}>
+        Para todos. Sin críticas. Sin juicios.
+      </p>
+
       {/* CTA Button */}
       <div className="animate-fade-up mt-10" style={{ animationDelay: '0.3s' }}>
         <Button 
