@@ -2,6 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import HeroContent from '@/components/HeroContent';
 import BenefitsSection from '@/components/BenefitsSection';
 import TrustSection from '@/components/TrustSection';
+import ClinicaCTA from '@/components/ClinicaCTA';
 import SplashScreen from '@/components/SplashScreen';
 
 // Lazy load the heavy 3D scene
@@ -40,6 +41,9 @@ const Index = () => {
         
         {/* Trust & Credibility */}
         <TrustSection />
+
+        {/* Clínica Miro CTA */}
+        <ClinicaCTA />
       </main>
     </>
   );
