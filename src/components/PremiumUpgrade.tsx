@@ -62,7 +62,7 @@ export function PremiumUpgrade({ analysisId, onSuccess }: PremiumUpgradeProps) {
           <Check className="w-5 h-5 text-accent shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">Métricas Detalladas</p>
-            <p className="text-sm text-muted-foreground">Análisis completo de proporciones</p>
+            <p className="text-sm text-muted-foreground">Tercios faciales, línea media, proporciones</p>
           </div>
         </div>
         
@@ -70,7 +70,15 @@ export function PremiumUpgrade({ analysisId, onSuccess }: PremiumUpgradeProps) {
           <Check className="w-5 h-5 text-accent shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">Recomendaciones IA</p>
-            <p className="text-sm text-muted-foreground">Consejos personalizados con IA</p>
+            <p className="text-sm text-muted-foreground">Sugerencias personalizadas</p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3">
+          <Check className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Informe PDF</p>
+            <p className="text-sm text-muted-foreground">Descarga y comparte tu análisis</p>
           </div>
         </div>
 
@@ -87,7 +95,7 @@ export function PremiumUpgrade({ analysisId, onSuccess }: PremiumUpgradeProps) {
         <div className="flex items-start gap-3">
           <Ticket className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-primary">Cupón 25% Clínica Miro</p>
+            <p className="font-medium text-primary">20% Dcto. Clínica Miro</p>
             <p className="text-sm text-muted-foreground">
               Evaluación presencial (valor $49.000)
             </p>
@@ -119,7 +127,7 @@ export function PremiumUpgrade({ analysisId, onSuccess }: PremiumUpgradeProps) {
       </Button>
 
       <p className="text-xs text-center text-muted-foreground mt-3">
-        Pago seguro con Flow • Sin suscripciones
+        Pago seguro con Flow · Sin suscripciones
       </p>
     </div>
   );
