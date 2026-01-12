@@ -15,14 +15,15 @@ interface AnalysisSummary {
 }
 
 export default function Dashboard() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
+    if (authLoading) return;
+    if (!user) {
+      signInAnonymously();
       return;
     }
 
@@ -47,7 +48,7 @@ export default function Dashboard() {
     };
 
     fetchAnalyses();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, signInAnonymously]);
 
   if (authLoading || loading) {
     return (

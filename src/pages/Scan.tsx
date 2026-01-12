@@ -24,7 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Scan() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,13 +47,44 @@ export default function Scan() {
   } = usePerfectCorpCamera();
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isBootstrappingAuth, setIsBootstrappingAuth] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // Redirect to auth if not logged in
-  if (!authLoading && !user) {
-    navigate('/auth');
-    return null;
+  // Ensure we always have a session (anonymous by default)
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) return;
+
+    let cancelled = false;
+    setIsBootstrappingAuth(true);
+
+    signInAnonymously()
+      .then(({ error }) => {
+        if (error) throw error;
+      })
+      .catch((err) => {
+        console.error('Error creating anonymous session:', err);
+        // If auth fails, go back to home (keeps UX non-blocking)
+        if (!cancelled) navigate('/', { replace: true });
+      })
+      .finally(() => {
+        if (!cancelled) setIsBootstrappingAuth(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, signInAnonymously, navigate]);
+
+  if (authLoading || isBootstrappingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
   }
+
+  if (!user) return null;
 
   const handleAnalyze = async () => {
     if (!restPhoto || !smilePhoto || !user) return;

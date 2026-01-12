@@ -132,7 +132,7 @@ function getFacialInsight(symmetry: number, thirds: { upper: number; middle: num
 export default function Result() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -201,12 +201,13 @@ export default function Result() {
   };
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
+    if (authLoading) return;
+    if (!user) {
+      signInAnonymously();
       return;
     }
     fetchAnalysis();
-  }, [id, user, authLoading]);
+  }, [id, user, authLoading, signInAnonymously]);
 
   useEffect(() => {
     if (!analysis) return;
