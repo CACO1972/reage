@@ -89,32 +89,42 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
   }, []);
 
   const openCamera = useCallback(async () => {
+    console.log("[Camera] Opening camera...");
     setError(null);
     setLowResWarning(false);
 
     const attachStream = async (stream: MediaStream) => {
+      console.log("[Camera] Attaching stream to video element...");
       streamRef.current = stream;
+
+      // Wait a tick for videoRef to be ready
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute("playsinline", "true");
         videoRef.current.setAttribute("webkit-playsinline", "true");
+        videoRef.current.muted = true;
 
         try {
           await videoRef.current.play();
+          console.log("[Camera] Video playing successfully");
           setIsCameraOpen(true);
-        } catch {
+        } catch (playError) {
+          console.warn("[Camera] Video play failed, but setting open:", playError);
           setIsCameraOpen(true);
         }
       } else {
+        console.warn("[Camera] videoRef not ready, setting open anyway");
         setIsCameraOpen(true);
       }
     };
 
     // Try with ideal constraints first, fallback to basic
-    const tryGetUserMedia = async () => {
+    const tryGetUserMedia = async (): Promise<MediaStream> => {
       // First attempt: ideal selfie constraints
       try {
+        console.log("[Camera] Attempt 1: ideal user constraints");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "user" },
@@ -123,27 +133,32 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
           },
           audio: false,
         });
+        console.log("[Camera] Attempt 1 succeeded");
         return stream;
       } catch (e) {
-        console.warn("Ideal constraints failed, trying basic...");
+        console.warn("[Camera] Attempt 1 failed:", e);
       }
 
       // Second attempt: basic facingMode user
       try {
+        console.log("[Camera] Attempt 2: basic user facingMode");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
           audio: false,
         });
+        console.log("[Camera] Attempt 2 succeeded");
         return stream;
       } catch (e) {
-        console.warn("FacingMode user failed, trying any camera...");
+        console.warn("[Camera] Attempt 2 failed:", e);
       }
 
-      // Final fallback: any camera
+      // Third attempt: any camera
+      console.log("[Camera] Attempt 3: any camera");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: false,
       });
+      console.log("[Camera] Attempt 3 succeeded");
       return stream;
     };
 
@@ -192,6 +207,17 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
       stopCamera();
     }
   }, [stopCamera]);
+
+  const triggerHapticFeedback = useCallback(() => {
+    try {
+      // Try Vibration API (most mobile browsers)
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50); // Short 50ms vibration
+      }
+    } catch {
+      // Haptic not supported
+    }
+  }, []);
 
   const playShutterSound = useCallback(() => {
     try {
@@ -272,7 +298,10 @@ export function useCameraCapture(options?: UseCameraCaptureOptions) {
 
       const preview = URL.createObjectURL(processedBlob);
 
+      // Feedback: sound + haptic
       playShutterSound();
+      triggerHapticFeedback();
+      
       savePhoto({ file, preview, lowResWarning: isLowRes });
       
     } catch (e) {
