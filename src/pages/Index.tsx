@@ -1,6 +1,10 @@
 import { Suspense, lazy, useState } from 'react';
 import HeroContent from '@/components/HeroContent';
+import HowItWorksSection from '@/components/HowItWorksSection';
+import DifferentiatorSection from '@/components/DifferentiatorSection';
+import ProcessStepsSection from '@/components/ProcessStepsSection';
 import BenefitsSection from '@/components/BenefitsSection';
+import FinalCTASection from '@/components/FinalCTASection';
 import FAQSection from '@/components/FAQSection';
 import TrustSection from '@/components/TrustSection';
 import Header from '@/components/Header';
@@ -43,10 +47,22 @@ const Index = () => {
           <HeroContent />
         </div>
         
+        {/* How It Works */}
+        <HowItWorksSection />
+        
+        {/* Differentiator */}
+        <DifferentiatorSection />
+        
+        {/* Process Steps */}
+        <ProcessStepsSection />
+        
         {/* Benefits & Pricing */}
         <div id="beneficios">
           <BenefitsSection />
         </div>
+        
+        {/* Final CTA */}
+        <FinalCTASection />
         
         {/* FAQ Section */}
         <FAQSection />
