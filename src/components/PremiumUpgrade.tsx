@@ -101,6 +101,16 @@ export function PremiumUpgrade({ analysisId, onSuccess }: PremiumUpgradeProps) {
             </p>
           </div>
         </div>
+
+        {/* Investment Notice */}
+        <div className="pt-3 mt-2 border-t border-primary/20">
+          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">
+            <p className="text-xs text-center text-white/80 leading-relaxed">
+              💡 <span className="font-medium text-emerald-400">Inversión inteligente:</span> el costo de 
+              este informe + la evaluación se abonan al tratamiento si decides realizarlo.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-baseline gap-2 mb-4">

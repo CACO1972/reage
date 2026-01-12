@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, User, Phone, Mail, Loader2, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Calendar, User, Phone, Mail, Loader2, CreditCard, ArrowLeft, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,7 +31,16 @@ export default function ClinicaBookingForm({ onClose }: ClinicaBookingFormProps)
     patientPhone: '',
     appointmentDate: '',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState({
+    cancellationPolicy: false,
+    dataProcessing: false,
+    creditToTreatment: false,
+  });
   const { toast } = useToast();
+
+  const allTermsAccepted = acceptedTerms.cancellationPolicy && 
+                           acceptedTerms.dataProcessing && 
+                           acceptedTerms.creditToTreatment;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +59,15 @@ export default function ClinicaBookingForm({ onClose }: ClinicaBookingFormProps)
         variant: 'destructive',
         title: 'Campos requeridos',
         description: 'Por favor completa todos los campos.',
+      });
+      return;
+    }
+
+    if (!allTermsAccepted) {
+      toast({
+        variant: 'destructive',
+        title: 'Acepta los términos',
+        description: 'Debes aceptar todas las condiciones para continuar.',
       });
       return;
     }
@@ -237,10 +256,86 @@ export default function ClinicaBookingForm({ onClose }: ClinicaBookingFormProps)
                 </div>
               </div>
 
+              {/* Investment Notice */}
+              <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-white/90 mb-1">
+                      ¡Es una inversión, no un gasto!
+                    </p>
+                    <p className="text-xs text-white/60 leading-relaxed">
+                      El 100% de tu pago se <span className="text-primary font-medium">abona al valor del tratamiento</span> si 
+                      decides realizarlo en Clínica Miro.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Terms & Conditions Checkboxes */}
+              <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <p className="text-xs font-medium text-white/70 mb-2">
+                  Condiciones del servicio:
+                </p>
+                
+                {/* Credit to treatment */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={acceptedTerms.creditToTreatment}
+                    onCheckedChange={(checked) => 
+                      setAcceptedTerms(prev => ({ ...prev, creditToTreatment: checked === true }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">
+                    Entiendo que el pago de la evaluación ($39.200) se <span className="text-primary">abona íntegramente</span> al 
+                    costo del tratamiento si decido realizarlo.
+                  </span>
+                </label>
+
+                {/* Cancellation policy */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={acceptedTerms.cancellationPolicy}
+                    onCheckedChange={(checked) => 
+                      setAcceptedTerms(prev => ({ ...prev, cancellationPolicy: checked === true }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">
+                    Acepto la <span className="text-amber-400 font-medium">política de cancelación</span>: si no asisto 
+                    sin avisar con <span className="font-medium">24 horas de anticipación</span>, el pago no será devuelto.
+                  </span>
+                </label>
+
+                {/* Data processing */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={acceptedTerms.dataProcessing}
+                    onCheckedChange={(checked) => 
+                      setAcceptedTerms(prev => ({ ...prev, dataProcessing: checked === true }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">
+                    Autorizo el tratamiento de mis datos personales para la gestión de la cita y 
+                    comunicaciones relacionadas con mi evaluación.
+                  </span>
+                </label>
+              </div>
+
+              {/* Warning */}
+              {!allTermsAccepted && (
+                <div className="flex items-center gap-2 text-xs text-amber-400/80">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Debes aceptar todas las condiciones para continuar</span>
+                </div>
+              )}
+
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !allTermsAccepted}
                 className="w-full h-12"
               >
                 <CreditCard className="w-4 h-4 mr-2" />

@@ -31,7 +31,7 @@ export default function ClinicaCTA() {
             </p>
           </div>
 
-          {/* Discount Card */}
+          {/* Investment Card */}
           <div className="rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 p-6 mb-6">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500/20 border border-emerald-500/30">
@@ -49,6 +49,14 @@ export default function ClinicaCTA() {
                 <span className="text-2xl font-bold text-white">$39.200</span>
               </div>
               <p className="text-xs text-white/50 mt-1">Incluye Rx Panorámica Digital · Hasta 3 cuotas sin interés</p>
+            </div>
+
+            {/* Investment Notice */}
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 mb-4">
+              <p className="text-xs text-center text-white/80 leading-relaxed">
+                💡 <span className="font-medium text-primary">Inversión, no gasto:</span> el 100% de tu pago se 
+                abona al tratamiento si decides realizarlo.
+              </p>
             </div>
 
             {/* Book Button */}
