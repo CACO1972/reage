@@ -501,11 +501,17 @@ export default function Result() {
                       />
                     </motion.div>
 
-                    {/* Premium Report */}
+                    {/* Premium Report - PDF Profesional */}
                     <PremiumReport
                       analysisId={analysis.id}
                       smileScore={analysis.smile_score || 0}
                       symmetryScore={analysis.facial_symmetry_score || 0}
+                      midlineDeviation={analysis.midline_deviation_mm || undefined}
+                      gingivalDisplay={analysis.gingival_display_mm || undefined}
+                      buccalCorridorLeft={analysis.buccal_corridor_left || undefined}
+                      buccalCorridorRight={analysis.buccal_corridor_right || undefined}
+                      facialSymmetryScore={analysis.facial_symmetry_score || undefined}
+                      facialThirds={analysis.facial_thirds_ratio}
                     />
 
                     {/* Coupon with QR */}
