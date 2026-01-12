@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Share2, Gift, Users, MessageCircle, Mail, Copy, Check, X, Sparkles } from 'lucide-react';
+import { Share2, Gift, Users, MessageCircle, Mail, Copy, Check, Sparkles, Facebook, Twitter, Linkedin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,7 @@ export function ShareReward({ analysisId, smileScore, userName = '' }: ShareRewa
   const shareUrl = `${window.location.origin}/?ref=${analysisId.slice(0, 8)}`;
   const shareText = `🦷 ¡Acabo de hacer mi análisis facial con IA! Mi score: ${smileScore}/100. Hazlo gratis tú también 👉`;
 
-  const handleShare = (platform: 'whatsapp' | 'email' | 'copy') => {
+  const handleShare = (platform: 'whatsapp' | 'email' | 'copy' | 'facebook' | 'twitter' | 'linkedin') => {
     switch (platform) {
       case 'whatsapp':
         window.open(
@@ -29,6 +29,39 @@ export function ShareReward({ analysisId, smileScore, userName = '' }: ShareRewa
         toast({
           title: '¡Compartido!',
           description: 'Se abrió WhatsApp para compartir.',
+        });
+        break;
+      case 'facebook':
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        toast({
+          title: '¡Compartido!',
+          description: 'Se abrió Facebook para compartir.',
+        });
+        break;
+      case 'twitter':
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        toast({
+          title: '¡Compartido!',
+          description: 'Se abrió X para compartir.',
+        });
+        break;
+      case 'linkedin':
+        window.open(
+          `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        toast({
+          title: '¡Compartido!',
+          description: 'Se abrió LinkedIn para compartir.',
         });
         break;
       case 'email':
@@ -129,25 +162,52 @@ export function ShareReward({ analysisId, smileScore, userName = '' }: ShareRewa
               <Button
                 onClick={() => handleShare('whatsapp')}
                 variant="outline"
-                className="flex-col h-auto py-4 gap-2"
+                className="flex-col h-auto py-3 gap-1.5"
               >
                 <MessageCircle className="w-5 h-5 text-green-500" />
                 <span className="text-xs">WhatsApp</span>
               </Button>
               
               <Button
+                onClick={() => handleShare('facebook')}
+                variant="outline"
+                className="flex-col h-auto py-3 gap-1.5"
+              >
+                <Facebook className="w-5 h-5 text-blue-600" />
+                <span className="text-xs">Facebook</span>
+              </Button>
+              
+              <Button
+                onClick={() => handleShare('twitter')}
+                variant="outline"
+                className="flex-col h-auto py-3 gap-1.5"
+              >
+                <Twitter className="w-5 h-5 text-sky-500" />
+                <span className="text-xs">X</span>
+              </Button>
+              
+              <Button
+                onClick={() => handleShare('linkedin')}
+                variant="outline"
+                className="flex-col h-auto py-3 gap-1.5"
+              >
+                <Linkedin className="w-5 h-5 text-blue-700" />
+                <span className="text-xs">LinkedIn</span>
+              </Button>
+              
+              <Button
                 onClick={() => handleShare('email')}
                 variant="outline"
-                className="flex-col h-auto py-4 gap-2"
+                className="flex-col h-auto py-3 gap-1.5"
               >
-                <Mail className="w-5 h-5 text-blue-500" />
+                <Mail className="w-5 h-5 text-primary" />
                 <span className="text-xs">Email</span>
               </Button>
               
               <Button
                 onClick={() => handleShare('copy')}
                 variant="outline"
-                className="flex-col h-auto py-4 gap-2"
+                className="flex-col h-auto py-3 gap-1.5"
               >
                 {copied ? (
                   <Check className="w-5 h-5 text-accent" />
