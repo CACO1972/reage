@@ -1,7 +1,10 @@
 import { Suspense, lazy, useState } from 'react';
 import HeroContent from '@/components/HeroContent';
 import BenefitsSection from '@/components/BenefitsSection';
+import FAQSection from '@/components/FAQSection';
 import TrustSection from '@/components/TrustSection';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import SplashScreen from '@/components/SplashScreen';
 
 // Lazy load the heavy 3D scene
@@ -13,6 +16,9 @@ const Index = () => {
   return (
     <>
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      
+      {/* Fixed Header */}
+      <Header />
       
       <main className="relative min-h-screen overflow-hidden bg-background">
         {/* 3D Particle Background */}
@@ -32,22 +38,27 @@ const Index = () => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,hsl(var(--background))_80%)] opacity-60" />
         </div>
 
-        {/* Hero Content */}
-        <HeroContent />
+        {/* Hero Content - add padding for fixed header */}
+        <div className="pt-16">
+          <HeroContent />
+        </div>
         
         {/* Benefits & Pricing */}
-        <BenefitsSection />
+        <div id="beneficios">
+          <BenefitsSection />
+        </div>
+        
+        {/* FAQ Section */}
+        <FAQSection />
         
         {/* Trust & Credibility */}
-        <TrustSection />
-
-        {/* Footer CTA - Simpler, no clinic yet */}
-        <section className="relative z-10 px-6 py-12 text-center">
-          <p className="text-xs text-white/40">
-            💡 <span className="text-white/60">¿Quieres ir más allá?</span> El informe premium incluye 20% dcto. para evaluación presencial
-          </p>
-        </section>
+        <div id="confianza">
+          <TrustSection />
+        </div>
       </main>
+
+      {/* Footer */}
+      <Footer />
     </>
   );
 };
