@@ -289,11 +289,14 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
       setupListeners();
 
       // Determine mode based on current capture target
+      // Use ref to avoid state race conditions
+      const modeAtOpen = currentModeRef.current;
+
       // For smile photos, use makeup mode which is more flexible
       // For rest/skin photos, use skincare mode for better quality validation
-      const faceDetectionMode = currentMode === 'rest' ? 'skincare' : 'makeup';
+      const faceDetectionMode = modeAtOpen === 'rest' ? 'skincare' : 'makeup';
       
-      console.log('[PerfectCorp] Initializing with mode:', faceDetectionMode);
+      console.log('[PerfectCorp] Initializing with mode:', faceDetectionMode, 'captureMode:', modeAtOpen);
       
       // Initialize SDK
       window.YMK.init({
@@ -345,20 +348,22 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
 
   // Auto-open camera for smile photo after rest photo is captured
   useEffect(() => {
-    if (shouldOpenCameraForSmile && currentMode === 'smile' && !restPhoto) {
-      // Reset flag and wait a moment before opening camera
-      setShouldOpenCameraForSmile(false);
-    }
-    
-    if (shouldOpenCameraForSmile && currentMode === 'smile' && restPhoto && !smilePhoto) {
-      // Add a small delay to let the UI update before reopening camera
+    if (!shouldOpenCameraForSmile) return;
+
+    // Only proceed when rest is captured, smile is missing, and UI is in smile step
+    if (currentMode === 'smile' && restPhoto && !smilePhoto && !isCameraOpen && !isCapturing) {
       const timer = setTimeout(() => {
         setShouldOpenCameraForSmile(false);
         openCamera();
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [shouldOpenCameraForSmile, currentMode, restPhoto, smilePhoto, openCamera]);
+
+    // If state no longer matches (e.g. user retook/rest cleared), reset the flag
+    if (!restPhoto || smilePhoto || currentMode !== 'smile') {
+      setShouldOpenCameraForSmile(false);
+    }
+  }, [shouldOpenCameraForSmile, currentMode, restPhoto, smilePhoto, isCameraOpen, isCapturing, openCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
