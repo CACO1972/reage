@@ -103,6 +103,89 @@ export type Database = {
           },
         ]
       }
+      clinic_appointments: {
+        Row: {
+          amount_clp: number
+          appointment_date: string
+          appointment_time: string
+          cancellation_policy_accepted: boolean
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          dentalink_appointment_id: number | null
+          dentalink_patient_id: number | null
+          id: string
+          mercadopago_payment_id: string | null
+          mercadopago_preference_id: string | null
+          patient_email: string
+          patient_name: string
+          patient_phone: string
+          patient_rut: string | null
+          payment_id: string | null
+          professional_id: number
+          professional_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_clp?: number
+          appointment_date: string
+          appointment_time: string
+          cancellation_policy_accepted?: boolean
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          dentalink_appointment_id?: number | null
+          dentalink_patient_id?: number | null
+          id?: string
+          mercadopago_payment_id?: string | null
+          mercadopago_preference_id?: string | null
+          patient_email: string
+          patient_name: string
+          patient_phone: string
+          patient_rut?: string | null
+          payment_id?: string | null
+          professional_id: number
+          professional_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_clp?: number
+          appointment_date?: string
+          appointment_time?: string
+          cancellation_policy_accepted?: boolean
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          dentalink_appointment_id?: number | null
+          dentalink_patient_id?: number | null
+          id?: string
+          mercadopago_payment_id?: string | null
+          mercadopago_preference_id?: string | null
+          patient_email?: string
+          patient_name?: string
+          patient_phone?: string
+          patient_rut?: string | null
+          payment_id?: string | null
+          professional_id?: number
+          professional_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_appointments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
