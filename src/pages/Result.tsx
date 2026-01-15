@@ -5,19 +5,12 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { PremiumUpgrade } from '@/components/PremiumUpgrade';
-import { AnimatedScoreRing } from '@/components/AnimatedScoreRing';
-import { FaceAnalysisOverlay } from '@/components/FaceAnalysisOverlay';
-import { Model3DPreview } from '@/components/Model3DPreview';
-import { AIInsightCard } from '@/components/AIInsightCard';
-import { SmileSimulation } from '@/components/SmileSimulation';
+import { SimpleScoreDisplay } from '@/components/SimpleScoreDisplay';
+import { SimplifiedSmileSimulation } from '@/components/SimplifiedSmileSimulation';
 import { ScanningAnimation } from '@/components/ScanningAnimation';
-import { TreatmentSuggestions } from '@/components/TreatmentSuggestions';
-import { PremiumContentPreview } from '@/components/PremiumContentPreview';
-import { ExtendedMetrics } from '@/components/ExtendedMetrics';
 import { PremiumReport } from '@/components/PremiumReport';
 import { CouponQR } from '@/components/CouponQR';
 import { ShareReward } from '@/components/ShareReward';
-import { SkinAnalysisCard } from '@/components/SkinAnalysisCard';
 import ClinicaCTA from '@/components/ClinicaCTA';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
@@ -25,24 +18,9 @@ import {
   ArrowLeft, 
   RefreshCw, 
   Sparkles,
-  Box,
-  CheckCircle,
-  TrendingUp,
-  Brain,
-  Droplets
+  FileText,
+  ChevronDown
 } from 'lucide-react';
-
-interface SkinAnalysisData {
-  overall_score?: number;
-  wrinkle_score?: number;
-  spots_score?: number;
-  texture_score?: number;
-  dark_circles_score?: number;
-  redness_score?: number;
-  pores_score?: number;
-  oiliness_score?: number;
-  skin_age?: number;
-}
 
 interface Analysis {
   id: string;
@@ -58,12 +36,7 @@ interface Analysis {
   gingival_display_mm: number | null;
   buccal_corridor_left: number | null;
   buccal_corridor_right: number | null;
-  raw_ai_payload?: {
-    perfect_corp?: {
-      skin_analysis?: SkinAnalysisData;
-      api_success?: boolean;
-    };
-  } | null;
+  raw_ai_payload?: any;
 }
 
 interface UserCoupon {
@@ -72,61 +45,6 @@ interface UserCoupon {
   discount_percent: number;
   original_value: number;
   expires_at: string | null;
-}
-
-function getSmileInsight(score: number, midline: number, gingival: number): string {
-  const insights: string[] = [];
-  
-  if (score >= 85) {
-    insights.push('Tu sonrisa tiene una armonía excepcional.');
-  } else if (score >= 70) {
-    insights.push('Tu sonrisa muestra buena proporción general.');
-  } else {
-    insights.push('Hay oportunidades para optimizar tu sonrisa.');
-  }
-
-  if (midline < 1.5) {
-    insights.push('La línea media dental está bien centrada.');
-  } else {
-    insights.push('Se detecta una ligera desviación en la línea media dental.');
-  }
-
-  if (gingival < 2) {
-    insights.push('La exposición de encía al sonreír está en rango ideal.');
-  } else if (gingival < 4) {
-    insights.push('La exposición gingival es ligeramente elevada.');
-  }
-
-  return insights.join(' ');
-}
-
-function getFacialInsight(symmetry: number, thirds: { upper: number; middle: number; lower: number } | null): string {
-  const insights: string[] = [];
-  
-  if (symmetry >= 90) {
-    insights.push('Tu rostro presenta una simetría notable, por encima del promedio.');
-  } else if (symmetry >= 80) {
-    insights.push('Tu simetría facial está dentro de parámetros saludables.');
-  } else {
-    insights.push('Se identifican áreas de asimetría que podrían beneficiarse de evaluación.');
-  }
-
-  if (thirds) {
-    const ideal = 33.33;
-    const deviation = Math.max(
-      Math.abs(thirds.upper - ideal),
-      Math.abs(thirds.middle - ideal),
-      Math.abs(thirds.lower - ideal)
-    );
-    
-    if (deviation < 3) {
-      insights.push('Las proporciones de los tercios faciales son armónicas.');
-    } else {
-      insights.push('Las proporciones faciales muestran variación respecto al ideal clásico.');
-    }
-  }
-
-  return insights.join(' ');
 }
 
 export default function Result() {
@@ -259,105 +177,79 @@ export default function Result() {
   const hasFacialData = analysis.facial_symmetry_score !== null;
   const hasAllData = hasSmileData && hasFacialData;
   
-  // Test mode overrides: ?testMode=premium forces premium view, ?testMode=free forces free view
   const isPremium = testMode === 'premium' ? true : testMode === 'free' ? false : analysis.mode === 'premium';
 
   return (
     <Layout>
       <div className="min-h-screen pb-24">
-        {/* Header */}
+        {/* Simple Header */}
         <div className="glass border-b border-border/50 sticky top-0 z-20">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <Link to="/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft className="w-4 h-4" />
-                Dashboard
+                Volver
               </Link>
               <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={refreshing}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Actualizar
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-          {/* Title with animation */}
+        <div className="container mx-auto px-4 py-6 max-w-lg">
+          {/* Title */}
           <motion.div 
-            className="text-center mb-8"
+            className="text-center mb-6"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-3xl font-bold mb-2">Tu Análisis Facial</h1>
+            <h1 className="text-2xl font-bold mb-1">Tu Resultado</h1>
             <p className="text-sm text-muted-foreground">
               {new Date(analysis.created_at).toLocaleDateString('es-ES', {
                 day: 'numeric',
-                month: 'long',
-                year: 'numeric'
+                month: 'long'
               })}
             </p>
-            {isPremium && (
-              <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">Premium Activo</span>
-              </div>
-            )}
             {isTestMode && (
-              <div className="mt-2 px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 text-xs font-medium">
-                🧪 Modo Prueba: {testMode === 'premium' ? 'PREMIUM' : 'GRATUITO'}
+              <div className="mt-2 inline-block px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 text-xs font-medium">
+                🧪 Modo Prueba: {testMode?.toUpperCase()}
               </div>
             )}
           </motion.div>
 
           {!hasAllData ? (
-            /* Scanning animation while analyzing */
+            /* Scanning Animation */
             analysis.frontal_smile_url ? (
               <ScanningAnimation imageUrl={analysis.frontal_smile_url} />
             ) : analysis.frontal_rest_url ? (
               <ScanningAnimation imageUrl={analysis.frontal_rest_url} />
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
-                <p className="text-muted-foreground">Cargando imágenes...</p>
+                <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
+                <p className="text-muted-foreground">Analizando...</p>
               </div>
             )
           ) : (
-            <div className="space-y-10">
-              {/* Hero Scores */}
-              <motion.div 
-                className="grid grid-cols-2 gap-6 py-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <AnimatedScoreRing
-                  score={analysis.smile_score || 0}
-                  label="Smile Score"
-                  sublabel="Armonía dental"
-                  color="primary"
-                  delay={200}
-                />
-                <AnimatedScoreRing
-                  score={analysis.facial_symmetry_score || 0}
-                  label="Simetría"
-                  sublabel="Balance facial"
-                  color="accent"
-                  delay={400}
-                />
-              </motion.div>
+            <div className="space-y-8">
+              {/* Score Display - Simple and Clear */}
+              <SimpleScoreDisplay
+                smileScore={analysis.smile_score || 0}
+                symmetryScore={analysis.facial_symmetry_score || 0}
+              />
 
-              {/* Smile Simulation - Always show if rest image exists */}
+              {/* Smile Simulation - Visual Impact */}
               {analysis.frontal_rest_url && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: 0.3 }}
                 >
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    Simulación de Sonrisa IA
+                    Tu Sonrisa Potencial
                   </h3>
-                  <SmileSimulation
+                  <SimplifiedSmileSimulation
                     restImageUrl={analysis.frontal_rest_url}
                     smileImageUrl={analysis.frontal_smile_url}
                     analysisId={analysis.id}
@@ -365,113 +257,11 @@ export default function Result() {
                 </motion.div>
               )}
 
-              {/* Face Analysis with Overlay */}
-              {analysis.frontal_rest_url && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-primary" />
-                    Mapa de Análisis Facial
-                  </h3>
-                  <FaceAnalysisOverlay 
-                    imageUrl={analysis.frontal_rest_url}
-                    symmetryScore={analysis.facial_symmetry_score || undefined}
-                    facialThirds={analysis.facial_thirds_ratio}
-                    midlineDeviation={analysis.midline_deviation_mm || 0}
-                    gingivalDisplay={analysis.gingival_display_mm || 0}
-                    buccalCorridorLeft={analysis.buccal_corridor_left || 0}
-                    buccalCorridorRight={analysis.buccal_corridor_right || 0}
-                  />
-                </motion.div>
-              )}
-
-              {/* Quick Insight - Free */}
-              <AIInsightCard
-                title="Resumen General"
-                insight={getSmileInsight(
-                  analysis.smile_score || 0,
-                  analysis.midline_deviation_mm || 0,
-                  analysis.gingival_display_mm || 0
-                )}
-              />
-
-              {/* Extended Metrics */}
+              {/* Share Reward - Viral mechanic */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-              >
-                <ExtendedMetrics
-                  midlineDeviation={analysis.midline_deviation_mm || 0}
-                  gingivalDisplay={analysis.gingival_display_mm || 0}
-                  buccalCorridorLeft={analysis.buccal_corridor_left || 0}
-                  buccalCorridorRight={analysis.buccal_corridor_right || 0}
-                  facialThirds={analysis.facial_thirds_ratio}
-                  facialMidlineDeviation={analysis.facial_midline_deviation_mm || 0}
-                  isLocked={!isPremium}
-                />
-              </motion.div>
-
-              {/* Skin Analysis - Perfect Corp Results */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.95 }}
-              >
-                <SkinAnalysisCard 
-                  skinData={analysis.raw_ai_payload?.perfect_corp?.skin_analysis || null}
-                  isLocked={!isPremium}
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
-              >
-                <TreatmentSuggestions
-                  smileScore={analysis.smile_score || 0}
-                  symmetryScore={analysis.facial_symmetry_score || 0}
-                  midlineDeviation={analysis.midline_deviation_mm || 0}
-                  gingivalDisplay={analysis.gingival_display_mm || 0}
-                  isLocked={!isPremium}
-                />
-              </motion.div>
-
-              {/* 3D Preview - Teaser for Freemium */}
-              {analysis.frontal_smile_url && !isPremium && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.2 }}
-                >
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Box className="w-5 h-5 text-primary" />
-                    Modelo 3D Interactivo
-                  </h3>
-                  <Model3DPreview imageUrl={analysis.frontal_smile_url} isLocked={true} />
-                </motion.div>
-              )}
-
-              {/* Premium Content Preview for Freemium */}
-              {!isPremium && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.3 }}
-                >
-                  <PremiumContentPreview onUpgradeClick={scrollToPremium} />
-                </motion.div>
-              )}
-
-              {/* Share Reward - Viral mechanic for all users */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.35 }}
+                transition={{ delay: 0.4 }}
               >
                 <ShareReward
                   analysisId={analysis.id}
@@ -479,64 +269,67 @@ export default function Result() {
                 />
               </motion.div>
 
-              {/* Locked Premium Insights for Freemium */}
-              {!isPremium && (
-                <motion.div
-                  className="space-y-4"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.4 }}
-                >
-                  <AIInsightCard
-                    title="Recomendaciones Personalizadas"
-                    insight=""
-                    isLocked={true}
-                    lockedPreview="Basado en tus métricas faciales, identificamos 3 áreas de mejora específicas. Tu línea media presenta una desviación que podría corregirse con..."
-                  />
-                  <AIInsightCard
-                    title="Plan de Tratamiento Sugerido"
-                    insight=""
-                    isLocked={true}
-                    lockedPreview="Para optimizar tu armonía facial recomendamos evaluar: 1) Alineación dental mediante ortodoncia, 2) Contorno facial con..."
-                  />
-                </motion.div>
-              )}
-
-              {/* Premium Upgrade CTA or Premium Content */}
+              {/* Premium CTA or Content */}
               <div ref={premiumSectionRef}>
                 {!isPremium ? (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.5 }}
+                    transition={{ delay: 0.5 }}
+                    className="space-y-4"
                   >
+                    {/* What's in the report teaser */}
+                    <div className="glass rounded-2xl p-5">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-primary" />
+                        ¿Qué incluye el Informe Completo?
+                      </h3>
+                      <ul className="space-y-2 text-sm text-muted-foreground">
+                        <li className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs">✓</span>
+                          246 puntos biométricos analizados
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs">✓</span>
+                          Análisis de piel y edad estimada
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs">✓</span>
+                          Recomendaciones personalizadas
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs">✓</span>
+                          20% descuento en evaluación clínica
+                        </li>
+                      </ul>
+                      
+                      <Button 
+                        onClick={scrollToPremium}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-4 text-primary"
+                      >
+                        Ver más
+                        <ChevronDown className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+
                     <PremiumUpgrade analysisId={analysis.id} onSuccess={() => fetchAnalysis()} />
                   </motion.div>
                 ) : (
-                  <div className="space-y-8">
-                    {/* Premium Success Banner */}
-                    <motion.div 
-                      className="glass rounded-2xl p-6"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                          <CheckCircle className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg font-semibold">Análisis Premium Completo</h2>
-                          <p className="text-sm text-muted-foreground">Todas las funciones desbloqueadas</p>
-                        </div>
-                      </div>
+                  <motion.div 
+                    className="space-y-6"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    {/* Premium Badge */}
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-primary">Premium Activo</span>
+                    </div>
 
-                      <AIInsightCard
-                        title="Análisis Completo IA"
-                        insight={getFacialInsight(analysis.facial_symmetry_score || 0, analysis.facial_thirds_ratio)}
-                      />
-                    </motion.div>
-
-                    {/* Premium Report - PDF Profesional */}
+                    {/* Premium Report - PDF Download */}
                     <PremiumReport
                       analysisId={analysis.id}
                       smileScore={analysis.smile_score || 0}
@@ -549,7 +342,7 @@ export default function Result() {
                       facialThirds={analysis.facial_thirds_ratio}
                     />
 
-                    {/* Coupon with QR */}
+                    {/* Coupon */}
                     {coupon && (
                       <CouponQR
                         couponCode={coupon.coupon_code}
@@ -559,21 +352,21 @@ export default function Result() {
                       />
                     )}
 
-                    {/* Clínica Miro CTA - Only for Premium users */}
+                    {/* Clinic CTA */}
                     <ClinicaCTA />
-                  </div>
+                  </motion.div>
                 )}
               </div>
 
-              {/* Actions */}
+              {/* New Analysis */}
               <motion.div 
-                className="flex gap-3"
+                className="pt-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 1.6 }}
+                transition={{ delay: 0.6 }}
               >
-                <Link to="/scan" className="flex-1">
-                  <Button className="w-full">
+                <Link to="/scan" className="block">
+                  <Button variant="outline" className="w-full">
                     Nuevo Análisis
                   </Button>
                 </Link>
