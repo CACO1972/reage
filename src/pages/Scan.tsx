@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { usePerfectCorpCamera } from '@/hooks/usePerfectCorpCamera';
+import { useCameraCapture } from '@/hooks/useCameraCapture';
 import { PerfectCorpCameraOverlay } from '@/components/PerfectCorpCameraOverlay';
 import {
   Camera,
@@ -16,40 +17,134 @@ import {
   AlertTriangle,
   Sparkles,
   RotateCcw,
-  Sun,
-  User,
-  Glasses,
   Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const MAX_PERFECTCORP_FAILURES = 2;
 
 export default function Scan() {
   const { user, loading: authLoading, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const {
-    isSDKLoaded,
-    isSDKLoading,
-    isCameraOpen,
-    isCapturing,
-    faceQuality,
-    error: cameraError,
-    restPhoto,
-    smilePhoto,
-    currentMode,
-    readyForAnalysis,
-    openCamera,
-    closeCamera,
-      resetCamera,
-    setCurrentMode,
-    retakePhoto,
-    clearPhotos,
-  } = usePerfectCorpCamera();
+  // Track failures and which camera to use
+  const [perfectCorpFailures, setPerfectCorpFailures] = useState(0);
+  const [useNativeCamera, setUseNativeCamera] = useState(false);
+
+  // Perfect Corp camera hook
+  const perfectCorp = usePerfectCorpCamera();
+
+  // Native camera hook
+  const nativeCamera = useCameraCapture({ enableSmartCrop: true });
+
+  // Determine which camera system to use
+  const activeCameraSystem = useNativeCamera ? 'native' : 'perfectcorp';
+
+  // Unified state from active camera
+  const isSDKLoading = activeCameraSystem === 'perfectcorp' ? perfectCorp.isSDKLoading : false;
+  const isCameraOpen = activeCameraSystem === 'perfectcorp' 
+    ? (perfectCorp.isCameraOpen || perfectCorp.isCapturing)
+    : nativeCamera.isCameraOpen;
+  const isCapturing = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.isCapturing 
+    : nativeCamera.isProcessing;
+  const faceQuality = activeCameraSystem === 'perfectcorp' ? perfectCorp.faceQuality : null;
+  
+  const cameraError = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.error 
+    : nativeCamera.error;
+  
+  const restPhoto = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.restPhoto 
+    : nativeCamera.restPhoto;
+  const smilePhoto = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.smilePhoto 
+    : nativeCamera.smilePhoto;
+  const currentMode = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.currentMode 
+    : nativeCamera.currentMode;
+  const readyForAnalysis = activeCameraSystem === 'perfectcorp' 
+    ? perfectCorp.readyForAnalysis 
+    : nativeCamera.readyForAnalysis;
 
   const [isUploading, setIsUploading] = useState(false);
   const [isBootstrappingAuth, setIsBootstrappingAuth] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Track Perfect Corp errors and trigger fallback
+  const prevErrorRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (activeCameraSystem !== 'perfectcorp') return;
+    
+    const currentError = perfectCorp.error;
+    // Count new error occurrences
+    if (currentError && currentError !== prevErrorRef.current) {
+      const newCount = perfectCorpFailures + 1;
+      setPerfectCorpFailures(newCount);
+      console.log(`[Scan] Perfect Corp failure #${newCount}: ${currentError}`);
+      
+      if (newCount >= MAX_PERFECTCORP_FAILURES) {
+        console.log('[Scan] Switching to native camera after repeated failures');
+        setUseNativeCamera(true);
+        toast({
+          title: 'Cambio de cámara',
+          description: 'Usando cámara alternativa para mejor compatibilidad.',
+        });
+      }
+    }
+    prevErrorRef.current = currentError;
+  }, [perfectCorp.error, perfectCorpFailures, activeCameraSystem, toast]);
+
+  // Unified camera actions
+  const openCamera = useCallback(() => {
+    if (activeCameraSystem === 'perfectcorp') {
+      perfectCorp.openCamera();
+    } else {
+      nativeCamera.openCamera();
+    }
+  }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  const closeCamera = useCallback(() => {
+    if (activeCameraSystem === 'perfectcorp') {
+      perfectCorp.closeCamera();
+    } else {
+      nativeCamera.stopCamera();
+    }
+  }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  const resetCamera = useCallback(() => {
+    if (activeCameraSystem === 'perfectcorp') {
+      perfectCorp.resetCamera();
+    } else {
+      nativeCamera.stopCamera();
+      setTimeout(() => nativeCamera.openCamera(), 300);
+    }
+  }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  const setCurrentMode = useCallback((mode: 'rest' | 'smile') => {
+    if (activeCameraSystem === 'perfectcorp') {
+      perfectCorp.setCurrentMode(mode);
+    } else {
+      nativeCamera.setCurrentMode(mode);
+    }
+  }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  const retakePhoto = useCallback((mode: 'rest' | 'smile') => {
+    if (activeCameraSystem === 'perfectcorp') {
+      perfectCorp.retakePhoto(mode);
+    } else {
+      nativeCamera.retakePhoto(mode);
+    }
+  }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  const capturePhoto = useCallback(() => {
+    if (activeCameraSystem === 'native') {
+      nativeCamera.captureFromCamera();
+    }
+    // Perfect Corp captures automatically when face quality is good
+  }, [activeCameraSystem, nativeCamera]);
 
   // Ensure we always have a session (anonymous by default)
   useEffect(() => {
@@ -65,7 +160,6 @@ export default function Scan() {
       })
       .catch((err) => {
         console.error('Error creating anonymous session:', err);
-        // If auth fails, go back to home (keeps UX non-blocking)
         if (!cancelled) navigate('/', { replace: true });
       })
       .finally(() => {
@@ -169,36 +263,17 @@ export default function Scan() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // For fallback gallery upload, we'll process and set the photo
-    const reader = new FileReader();
-    reader.onload = () => {
-      const preview = reader.result as string;
-      
-      // Convert to File with proper type
-      fetch(preview)
-        .then(res => res.blob())
-        .then(blob => {
-          const photoFile = new File([blob], `gallery-${currentMode}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          
-          // We need to handle this separately since the hook doesn't expose setRestPhoto/setSmilePhoto
-          // For now, show a toast suggesting to use the camera
-          toast({
-            title: 'Usa la cámara profesional',
-            description: 'Para mejor calidad de análisis, usa la cámara con validación automática.',
-          });
-        });
-    };
-    reader.readAsDataURL(file);
+    if (activeCameraSystem === 'native') {
+      nativeCamera.handleFileInput(file);
+    } else {
+      // For Perfect Corp, show toast suggesting camera
+      toast({
+        title: 'Usa la cámara profesional',
+        description: 'Para mejor calidad de análisis, usa la cámara con validación automática.',
+      });
+    }
     e.target.value = '';
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   const currentPhoto = currentMode === 'rest' ? restPhoto : smilePhoto;
 
@@ -212,6 +287,11 @@ export default function Scan() {
             <p className="text-xs text-primary font-medium">
               Análisis estético dentofacial
             </p>
+            {useNativeCamera && (
+              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                Cámara alternativa
+              </span>
+            )}
           </div>
           
           {/* Progress indicator */}
@@ -244,17 +324,54 @@ export default function Scan() {
           {/* Camera/Photo area */}
           <section className="relative">
             {/* Perfect Corp Camera Module Container */}
-            <div id="YMK-module" className={`${isCameraOpen || isCapturing ? 'block' : 'hidden'}`}>
-              {/* Perfect Corp SDK renders here */}
-            </div>
+            {activeCameraSystem === 'perfectcorp' && (
+              <div id="YMK-module" className={`${isCameraOpen ? 'block' : 'hidden'}`}>
+                {/* Perfect Corp SDK renders here */}
+              </div>
+            )}
 
-            {(isCameraOpen || isCapturing) && (
-              <div className="space-y-3">
-                {/* Face quality overlay */}
-                <PerfectCorpCameraOverlay 
-                  faceQuality={faceQuality} 
-                  currentMode={currentMode}
+            {/* Native camera video */}
+            {activeCameraSystem === 'native' && isCameraOpen && (
+              <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black relative">
+                <video
+                  ref={nativeCamera.videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }}
                 />
+                {/* Capture button for native camera */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                  <button
+                    onClick={capturePhoto}
+                    disabled={isCapturing}
+                    className="w-16 h-16 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-white" />
+                  </button>
+                </div>
+                {/* Mode indicator */}
+                <div className="absolute bottom-4 left-4 right-4 text-center">
+                  <div className="inline-block text-xs text-white/90 bg-black/50 rounded-lg px-3 py-2 backdrop-blur-sm">
+                    {currentMode === 'rest' 
+                      ? '😐 Rostro relajado • Labios cerrados'
+                      : '😁 Sonrisa natural • Muestra los dientes'
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isCameraOpen && (
+              <div className="space-y-3 mt-3">
+                {/* Face quality overlay - only for Perfect Corp */}
+                {activeCameraSystem === 'perfectcorp' && (
+                  <PerfectCorpCameraOverlay 
+                    faceQuality={faceQuality} 
+                    currentMode={currentMode}
+                  />
+                )}
                 
                 {/* Loading indicator while SDK initializes */}
                 {isSDKLoading && (
@@ -270,7 +387,7 @@ export default function Scan() {
                 <Button
                   onClick={closeCamera}
                   variant="ghost"
-                  className="w-full mt-4"
+                  className="w-full"
                 >
                   Cancelar
                 </Button>
@@ -302,7 +419,7 @@ export default function Scan() {
                   {/* Quality badge */}
                   <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-green-500/90 text-white text-[10px] font-medium flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
-                    Validada por IA
+                    {activeCameraSystem === 'perfectcorp' ? 'Validada por IA' : 'Capturada'}
                   </div>
                 </div>
                 
@@ -338,7 +455,6 @@ export default function Scan() {
                     <Button
                       onClick={() => {
                         setCurrentMode('smile');
-                        // Open camera for smile after brief delay
                         setTimeout(() => openCamera(), 300);
                       }}
                       className="h-12"
@@ -371,7 +487,7 @@ export default function Scan() {
             {/* Initial selection: Camera or Gallery */}
             {!isCameraOpen && !isCapturing && !currentPhoto && (
               <div className="space-y-3">
-                {/* Main camera button - Perfect Corp SDK */}
+                {/* Main camera button */}
                 <button
                   onClick={openCamera}
                   disabled={isSDKLoading}
@@ -383,10 +499,10 @@ export default function Scan() {
                     <Camera className="w-12 h-12 mb-3 text-primary" />
                   )}
                   <span className="font-semibold text-base">
-                    {isSDKLoading ? 'Cargando...' : 'Abrir cámara profesional'}
+                    {isSDKLoading ? 'Cargando...' : useNativeCamera ? 'Abrir cámara' : 'Abrir cámara profesional'}
                   </span>
                   <span className="text-xs text-muted-foreground mt-1">
-                    Validación automática de calidad
+                    {useNativeCamera ? 'Captura manual' : 'Validación automática de calidad'}
                   </span>
                 </button>
                 
@@ -416,10 +532,10 @@ export default function Scan() {
                   </div>
                 </div>
 
-                {/* Fallback gallery option - smaller */}
+                {/* Fallback gallery option */}
                 <label className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <Upload className="w-4 h-4" />
-                  <span>O subir desde galería (no recomendado)</span>
+                  <span>O subir desde galería</span>
                   <input
                     ref={galleryInputRef}
                     type="file"
