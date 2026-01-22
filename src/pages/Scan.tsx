@@ -41,6 +41,7 @@ export default function Scan() {
     readyForAnalysis,
     openCamera,
     closeCamera,
+      resetCamera,
     setCurrentMode,
     retakePhoto,
     clearPhotos,
@@ -272,6 +273,15 @@ export default function Scan() {
                   className="w-full mt-4"
                 >
                   Cancelar
+                </Button>
+
+                <Button
+                  onClick={resetCamera}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reiniciar cámara
                 </Button>
               </div>
             )}
