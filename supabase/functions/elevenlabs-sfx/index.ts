@@ -40,6 +40,17 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+
+      // If the key lacks sound_generation permission, treat it as a non-fatal feature toggle.
+      // Returning 204 avoids surfacing a 500 to the client/app while keeping behavior explicit.
+      if (
+        response.status === 401 &&
+        (errorText.includes('missing_permissions') || errorText.includes('sound_generation'))
+      ) {
+        console.warn('ElevenLabs SFX disabled: missing sound_generation permission');
+        return new Response(null, { status: 204, headers: corsHeaders });
+      }
+
       console.error('ElevenLabs SFX error:', response.status, errorText);
       throw new Error(`ElevenLabs API error: ${response.status}`);
     }

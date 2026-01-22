@@ -105,6 +105,12 @@ export function useElevenLabs(options: UseElevenLabsOptions = {}) {
       }
 
       const audioBlob = await response.blob();
+
+      // 204 No Content (or any empty response) means SFX is effectively disabled.
+      if (!audioBlob || audioBlob.size === 0) {
+        return;
+      }
+
       const audioUrl = URL.createObjectURL(audioBlob);
       
       const audio = new Audio(audioUrl);
