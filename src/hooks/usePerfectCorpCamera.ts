@@ -71,6 +71,7 @@ export interface UsePerfectCorpCameraReturn {
   readyForAnalysis: boolean;
   openCamera: () => void;
   closeCamera: () => void;
+  resetCamera: () => void;
   setCurrentMode: (mode: CaptureMode) => void;
   retakePhoto: (mode: CaptureMode) => void;
   clearPhotos: () => void;
@@ -93,11 +94,23 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
   const listenerIdsRef = useRef<string[]>([]);
   const sdkLoadedRef = useRef(false);
   const currentModeRef = useRef<CaptureMode>(currentMode);
+  const isCameraOpenRef = useRef(false);
+  const isCapturingRef = useRef(false);
+  const openWatchdogRef = useRef<number | null>(null);
+  const smileAutoRetryRef = useRef(0);
   
   // Keep ref in sync with state
   useEffect(() => {
     currentModeRef.current = currentMode;
   }, [currentMode]);
+
+  useEffect(() => {
+    isCameraOpenRef.current = isCameraOpen;
+  }, [isCameraOpen]);
+
+  useEffect(() => {
+    isCapturingRef.current = isCapturing;
+  }, [isCapturing]);
 
   // Load SDK script
   const loadSDK = useCallback(() => {
@@ -309,12 +322,72 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
       // Open camera kit
       window.YMK.openCameraKit();
       setIsCapturing(true);
+
+      // Watchdog: sometimes the SDK never emits cameraOpened on some devices during mode switch.
+      // If we are stuck in "capturing" without the camera becoming open, force close + surface a recoverable error.
+      if (openWatchdogRef.current) {
+        window.clearTimeout(openWatchdogRef.current);
+      }
+      openWatchdogRef.current = window.setTimeout(() => {
+        // Only act if we're still stuck
+        if (!window.YMK) return;
+        if (!isCameraOpenRef.current && isCapturingRef.current) {
+          console.warn('[PerfectCorp] Watchdog: camera did not open in time. Forcing reset.');
+          try {
+            window.YMK.close();
+          } catch {
+            // ignore
+          }
+          setIsCameraOpen(false);
+          setIsCapturing(false);
+          setFaceQuality(null);
+          setError('La cámara se quedó esperando. Toca “Reiniciar cámara”.');
+
+          // Auto-retry only once when switching to smile to avoid loops.
+          if (currentModeRef.current === 'smile' && smileAutoRetryRef.current < 1) {
+            smileAutoRetryRef.current += 1;
+            setTimeout(() => {
+              setError(null);
+              openCamera();
+            }, 600);
+          }
+        }
+      }, 6500);
       
     } catch (err) {
       console.error('[PerfectCorp] Open camera error:', err);
       setError(err instanceof Error ? err.message : 'Error al abrir la cámara');
     }
   }, [isSDKLoaded, loadSDK, setupListeners, currentMode]);
+
+  const resetCamera = useCallback(() => {
+    console.log('[PerfectCorp] resetCamera');
+    setError(null);
+    setFaceQuality(null);
+    setIsCameraOpen(false);
+    setIsCapturing(false);
+
+    if (openWatchdogRef.current) {
+      window.clearTimeout(openWatchdogRef.current);
+      openWatchdogRef.current = null;
+    }
+
+    try {
+      if (window.YMK) {
+        // Best-effort cleanup
+        try { window.YMK.close(); } catch { /* ignore */ }
+        listenerIdsRef.current.forEach((id) => {
+          try { window.YMK.removeEventListener(id); } catch { /* ignore */ }
+        });
+        listenerIdsRef.current = [];
+      }
+    } finally {
+      // Re-open after a small delay to let the SDK settle
+      setTimeout(() => {
+        openCamera();
+      }, 350);
+    }
+  }, [openCamera]);
 
   // Close camera
   const closeCamera = useCallback(() => {
@@ -368,6 +441,11 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (openWatchdogRef.current) {
+        window.clearTimeout(openWatchdogRef.current);
+        openWatchdogRef.current = null;
+      }
+
       listenerIdsRef.current.forEach(id => {
         try {
           if (window.YMK) {
@@ -401,6 +479,7 @@ export function usePerfectCorpCamera(): UsePerfectCorpCameraReturn {
     readyForAnalysis,
     openCamera,
     closeCamera,
+    resetCamera,
     setCurrentMode,
     retakePhoto,
     clearPhotos
