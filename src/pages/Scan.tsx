@@ -77,6 +77,7 @@ export default function Scan() {
 
   // Track Perfect Corp errors and trigger fallback
   const prevErrorRef = useRef<string | null>(null);
+  const autoOpenedSmileRef = useRef(false);
   
   useEffect(() => {
     if (activeCameraSystem !== 'perfectcorp') return;
@@ -108,6 +109,36 @@ export default function Scan() {
       nativeCamera.openCamera();
     }
   }, [activeCameraSystem, perfectCorp, nativeCamera]);
+
+  // Redundant auto-advance: when the user already captured REST and we are on SMILE,
+  // ensure the camera actually opens (some devices/SDKs miss the internal re-open).
+  useEffect(() => {
+    const shouldAutoOpenSmile =
+      currentMode === 'smile' &&
+      !!restPhoto &&
+      !smilePhoto &&
+      !isCameraOpen &&
+      !isCapturing;
+
+    if (!shouldAutoOpenSmile) return;
+    if (autoOpenedSmileRef.current) return;
+
+    autoOpenedSmileRef.current = true;
+    console.log('[Scan] Auto-opening camera for SMILE step');
+
+    const t = window.setTimeout(() => {
+      openCamera();
+    }, 350);
+
+    return () => window.clearTimeout(t);
+  }, [currentMode, restPhoto, smilePhoto, isCameraOpen, isCapturing, openCamera]);
+
+  // Reset the guard when user returns to REST or retakes
+  useEffect(() => {
+    if (currentMode === 'rest' || !restPhoto) {
+      autoOpenedSmileRef.current = false;
+    }
+  }, [currentMode, restPhoto]);
 
   const closeCamera = useCallback(() => {
     if (activeCameraSystem === 'perfectcorp') {
