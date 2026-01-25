@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Smile, Sparkles } from 'lucide-react';
+import { Smile, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 
 interface SimpleScoreDisplayProps {
   smileScore: number;
@@ -10,14 +10,23 @@ export function SimpleScoreDisplay({ smileScore, symmetryScore }: SimpleScoreDis
   const overallScore = Math.round((smileScore + symmetryScore) / 2);
   
   const getScoreLabel = (score: number) => {
-    if (score >= 90) return { text: 'Excepcional', emoji: '🌟' };
-    if (score >= 80) return { text: 'Muy bueno', emoji: '✨' };
-    if (score >= 70) return { text: 'Bueno', emoji: '👍' };
-    if (score >= 60) return { text: 'Promedio', emoji: '📊' };
-    return { text: 'Mejorable', emoji: '🎯' };
+    if (score >= 90) return { text: 'Excepcional', emoji: '🌟', color: 'text-primary' };
+    if (score >= 80) return { text: 'Muy bueno', emoji: '✨', color: 'text-primary' };
+    if (score >= 70) return { text: 'Bueno', emoji: '👍', color: 'text-accent' };
+    if (score >= 60) return { text: 'Promedio', emoji: '📊', color: 'text-muted-foreground' };
+    return { text: 'Con potencial', emoji: '🎯', color: 'text-accent' };
+  };
+
+  const getPotentialGain = (score: number) => {
+    if (score >= 90) return 5;
+    if (score >= 80) return 10;
+    if (score >= 70) return 15;
+    if (score >= 60) return 20;
+    return 25;
   };
 
   const scoreInfo = getScoreLabel(overallScore);
+  const potentialGain = getPotentialGain(overallScore);
 
   return (
     <motion.div
@@ -38,7 +47,7 @@ export function SimpleScoreDisplay({ smileScore, symmetryScore }: SimpleScoreDis
         </div>
         <div className="flex items-center justify-center gap-2">
           <span className="text-2xl">{scoreInfo.emoji}</span>
-          <span className="text-xl text-foreground/80 font-medium">{scoreInfo.text}</span>
+          <span className={`text-xl font-medium ${scoreInfo.color}`}>{scoreInfo.text}</span>
         </div>
       </motion.div>
 
@@ -61,19 +70,43 @@ export function SimpleScoreDisplay({ smileScore, symmetryScore }: SimpleScoreDis
         </div>
       </motion.div>
 
-      {/* Simple interpretation */}
-      <motion.p
-        className="mt-6 text-muted-foreground text-sm leading-relaxed"
+      {/* Potential Gain - Creates desire for premium */}
+      <motion.div
+        className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <TrendingUp className="w-5 h-5 text-primary" />
+          <span className="font-semibold text-primary">Potencial detectado</span>
+        </div>
+        <p className="text-sm text-foreground/80">
+          Podrías mejorar hasta <span className="font-bold text-primary">+{potentialGain}%</span> con las recomendaciones del informe profesional.
+        </p>
+      </motion.div>
+
+      {/* Interpretation with CTA hook */}
+      <motion.div
+        className="mt-4 p-4 rounded-xl bg-card/30"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
       >
-        {overallScore >= 80 
-          ? 'Tu armonía facial está por encima del promedio. El informe detallado incluye oportunidades específicas de mejora.'
-          : overallScore >= 65
-          ? 'Tu análisis muestra una buena base con áreas de oportunidad. El informe premium detalla recomendaciones personalizadas.'
-          : 'Identificamos varias oportunidades para mejorar tu armonía facial. El informe incluye un plan personalizado.'}
-      </motion.p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {overallScore >= 80 
+            ? 'Tu armonía facial está por encima del promedio. El informe premium revela exactamente qué pequeños ajustes podrían llevarte al siguiente nivel.'
+            : overallScore >= 65
+            ? 'Tu análisis muestra una buena base con oportunidades claras de mejora. El informe premium incluye un plan de acción personalizado.'
+            : 'Identificamos varias oportunidades para mejorar tu armonía. El informe premium detalla cada área y cómo optimizarla.'}
+        </p>
+        
+        {/* Subtle CTA */}
+        <div className="flex items-center justify-center gap-1 mt-3 text-primary text-sm font-medium">
+          <span>Ver cómo mejorar</span>
+          <ChevronRight className="w-4 h-4" />
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
