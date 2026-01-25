@@ -3,6 +3,7 @@ import { Check, Gift, Crown, Sparkles, TrendingUp, Smile, ScanFace, Box, FileTex
 import { Button } from '@/components/ui/button';
 import jsPDF from 'jspdf';
 import logoSimetria from '@/assets/logo-simetria.png';
+import { TestimonialsSection } from './TestimonialsSection';
 
 const freeBenefits = [
   'Puntuación de sonrisa',
@@ -320,6 +321,9 @@ export default function BenefitsSection() {
             </div>
           </div>
         </div>
+
+        {/* Testimonials Section */}
+        <TestimonialsSection />
       </div>
     </section>
   );
