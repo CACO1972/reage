@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePerfectCorpCamera } from '@/hooks/usePerfectCorpCamera';
 import { useCameraCapture } from '@/hooks/useCameraCapture';
 import { PerfectCorpCameraOverlay } from '@/components/PerfectCorpCameraOverlay';
+import { CameraDebugPanel } from '@/components/CameraDebugPanel';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -25,6 +26,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MAX_PERFECTCORP_FAILURES = 2;
+const DEBUG_MODE = true; // Set to false in production
 
 export default function Scan() {
   const { user, loading: authLoading, signInAnonymously } = useAuth();
@@ -731,6 +733,22 @@ export default function Scan() {
             </motion.footer>
           )}
         </AnimatePresence>
+
+        {/* Debug Panel - only in development */}
+        {DEBUG_MODE && (
+          <CameraDebugPanel
+            cameraSystem={activeCameraSystem}
+            currentMode={currentMode}
+            isCameraOpen={isCameraOpen}
+            isCapturing={isCapturing}
+            isSDKLoading={isSDKLoading}
+            faceQuality={faceQuality}
+            error={cameraError}
+            restPhotoExists={!!restPhoto}
+            smilePhotoExists={!!smilePhoto}
+            perfectCorpFailures={perfectCorpFailures}
+          />
+        )}
       </div>
     </Layout>
   );
