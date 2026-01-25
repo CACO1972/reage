@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePerfectCorpCamera } from '@/hooks/usePerfectCorpCamera';
 import { useCameraCapture } from '@/hooks/useCameraCapture';
 import { PerfectCorpCameraOverlay } from '@/components/PerfectCorpCameraOverlay';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Camera,
   Upload,
@@ -18,6 +20,7 @@ import {
   Sparkles,
   RotateCcw,
   Loader2,
+  Settings2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -287,11 +290,26 @@ export default function Scan() {
             <p className="text-xs text-primary font-medium">
               Análisis estético dentofacial
             </p>
-            {useNativeCamera && (
-              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                Cámara alternativa
-              </span>
-            )}
+            
+            {/* Camera toggle */}
+            <div className="ml-auto flex items-center gap-2">
+              <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+              <Label htmlFor="camera-toggle" className="text-[10px] text-muted-foreground cursor-pointer">
+                {useNativeCamera ? 'Nativa' : 'Pro'}
+              </Label>
+              <Switch
+                id="camera-toggle"
+                checked={!useNativeCamera}
+                onCheckedChange={(checked) => {
+                  // Close any open camera before switching
+                  if (isCameraOpen) {
+                    closeCamera();
+                  }
+                  setUseNativeCamera(!checked);
+                }}
+                className="scale-75"
+              />
+            </div>
           </div>
           
           {/* Progress indicator */}
