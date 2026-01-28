@@ -75,7 +75,9 @@ export default function Scan() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Photos state
   const [restPhoto, setRestPhoto] = useState<CaptureResult | null>(null);
@@ -87,14 +89,27 @@ export default function Scan() {
   const [isBootstrappingAuth, setIsBootstrappingAuth] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-capture delay (seconds before starting countdown)
+  const AUTO_CAPTURE_DELAY = 4;
+
   const readyForAnalysis = !!restPhoto && !!smilePhoto;
+
+  // Clear auto-timer
+  const clearAutoTimer = useCallback(() => {
+    if (autoTimerRef.current) {
+      clearInterval(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+    setAutoCountdown(null);
+  }, []);
 
   // Stop camera and cleanup tracks
   const stopCamera = useCallback(() => {
+    clearAutoTimer();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setIsCameraOpen(false);
-  }, []);
+  }, [clearAutoTimer]);
 
   // Open camera with getUserMedia
   const openCamera = useCallback(async () => {
@@ -159,8 +174,26 @@ export default function Scan() {
     }
   }, [stopCamera]);
 
-  // Start countdown then capture
-  const startCountdown = useCallback(() => {
+  // Start auto-capture timer when camera opens
+  const startAutoCapture = useCallback(() => {
+    clearAutoTimer();
+    setAutoCountdown(AUTO_CAPTURE_DELAY);
+    
+    let remaining = AUTO_CAPTURE_DELAY;
+    autoTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining > 0) {
+        setAutoCountdown(remaining);
+      } else {
+        clearAutoTimer();
+        // Start the 3-2-1 countdown
+        startCountdownInternal();
+      }
+    }, 1000);
+  }, [clearAutoTimer]);
+
+  // Internal countdown that leads to capture
+  const startCountdownInternal = useCallback(() => {
     if (!videoRef.current || countdown !== null) return;
     
     setCountdown(3);
@@ -253,10 +286,11 @@ export default function Scan() {
     }
   }, [currentMode, stopCamera]);
 
-  // Public capture function that starts countdown
+  // Public capture function - cancels auto timer and starts countdown immediately
   const capturePhoto = useCallback(() => {
-    startCountdown();
-  }, [startCountdown]);
+    clearAutoTimer();
+    startCountdownInternal();
+  }, [clearAutoTimer, startCountdownInternal]);
 
   // Handle gallery file selection
   const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,9 +346,21 @@ export default function Scan() {
     openCamera();
   }, [restPhoto, smilePhoto, openCamera]);
 
+  // Start auto-capture when camera opens
+  useEffect(() => {
+    if (isCameraOpen && videoRef.current) {
+      // Small delay to let user position themselves, then start auto timer
+      const delay = setTimeout(() => {
+        startAutoCapture();
+      }, 500);
+      return () => clearTimeout(delay);
+    }
+  }, [isCameraOpen, startAutoCapture]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      clearAutoTimer();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (restPhoto?.preview) URL.revokeObjectURL(restPhoto.preview);
       if (smilePhoto?.preview) URL.revokeObjectURL(smilePhoto.preview);
@@ -491,7 +537,26 @@ export default function Scan() {
                 {/* Simple visual overlay */}
                 <SimpleCameraOverlay currentMode={currentMode} />
                 
-                {/* Countdown overlay */}
+                {/* Auto-capture timer indicator */}
+                <AnimatePresence>
+                  {autoCountdown !== null && countdown === null && (
+                    <motion.div 
+                      className="absolute top-4 left-1/2 -translate-x-1/2 z-20"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        <span className="text-sm text-white/90">
+                          Captura en {autoCountdown}s
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Countdown overlay (3-2-1) */}
                 <AnimatePresence>
                   {countdown !== null && (
                     <motion.div 
@@ -514,7 +579,7 @@ export default function Scan() {
                   )}
                 </AnimatePresence>
                 
-                {/* Capture button */}
+                {/* Capture button - tap to capture immediately */}
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
                   <button
                     onClick={capturePhoto}
@@ -522,14 +587,17 @@ export default function Scan() {
                     className="w-18 h-18 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
                     style={{ width: '72px', height: '72px' }}
                   >
-                    {isCapturing ? (
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    ) : countdown !== null ? (
+                    {isCapturing || countdown !== null ? (
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
                     ) : (
                       <div className="w-14 h-14 rounded-full bg-white" />
                     )}
                   </button>
+                  {autoCountdown !== null && countdown === null && (
+                    <p className="text-center text-xs text-white/70 mt-2">
+                      Toca para capturar ahora
+                    </p>
+                  )}
                 </div>
               </div>
             )}
