@@ -59,10 +59,17 @@ serve(async (req) => {
     // Prepare Flow payment data
     const commerceOrder = payment.id;
     const subject = 'Análisis Premium Simetría';
-    const email = user.email || '';
+    const email = user.email;
+    
+    // Validate email - Flow requires a valid email
+    if (!email) {
+      // Delete the pending payment record since we can't proceed
+      await supabase.from('payments').delete().eq('id', payment.id);
+      throw new Error('Se requiere un email válido para procesar el pago. Por favor actualiza tu perfil.');
+    }
+    
     const urlConfirmation = `${supabaseUrl}/functions/v1/flow-webhook`;
     const urlReturn = returnUrl || `${supabaseUrl.replace('supabase.co', 'lovableproject.com')}/result/${analysisId}`;
-
     // Create signature for Flow
     const params: Record<string, string> = {
       apiKey: flowApiKey,
