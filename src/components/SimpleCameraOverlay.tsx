@@ -30,7 +30,7 @@ export function SimpleCameraOverlay({ currentMode }: SimpleCameraOverlayProps) {
           {/* Mask for darkening outside the oval */}
           <mask id="faceMask">
             <rect x="0" y="0" width="100" height="133" fill="white"/>
-            <ellipse cx="50" cy="55" rx="28" ry="38" fill="black"/>
+            <ellipse cx="50" cy="52" rx="38" ry="48" fill="black"/>
           </mask>
         </defs>
 
@@ -38,30 +38,30 @@ export function SimpleCameraOverlay({ currentMode }: SimpleCameraOverlayProps) {
         <rect 
           x="0" y="0" 
           width="100" height="133" 
-          fill="rgba(0,0,0,0.5)" 
+          fill="rgba(0,0,0,0.45)" 
           mask="url(#faceMask)"
         />
 
         {/* Main oval guide */}
         <motion.ellipse 
           cx="50" 
-          cy="55" 
-          rx="28" 
-          ry="38" 
+          cy="52" 
+          rx="38" 
+          ry="48" 
           fill="none" 
           stroke="url(#ovalGuideGradient)" 
-          strokeWidth="0.6"
+          strokeWidth="0.5"
           initial={{ opacity: 0.6 }}
           animate={{ opacity: [0.6, 0.9, 0.6] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Corner brackets for framing */}
+        {/* Corner brackets for framing - adjusted for larger oval */}
         <g stroke="hsl(var(--primary))" strokeWidth="0.4" fill="none" opacity="0.7">
-          <path d="M 18 22 L 18 16 L 25 16" />
-          <path d="M 82 22 L 82 16 L 75 16" />
-          <path d="M 18 94 L 18 100 L 25 100" />
-          <path d="M 82 94 L 82 100 L 75 100" />
+          <path d="M 8 10 L 8 4 L 16 4" />
+          <path d="M 92 10 L 92 4 L 84 4" />
+          <path d="M 8 104 L 8 110 L 16 110" />
+          <path d="M 92 104 L 92 110 L 84 110" />
         </g>
       </svg>
 
