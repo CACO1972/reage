@@ -41,14 +41,14 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
+        model: "google/gemini-3-pro-image-preview",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Transform this portrait photo to show the person with a natural, warm, and genuine smile. Keep the exact same person, lighting, background, and all facial features identical. Only change the mouth area to show a beautiful, natural smile with visible teeth. The smile should look authentic and not artificial. Maintain perfect image quality and resolution."
+                text: "Generate a new image based on this portrait photo showing the same person with a natural, warm, and genuine smile. Keep the exact same person, lighting, background, and all facial features identical. Only change the mouth area to show a beautiful, natural smile with visible teeth. The smile should look authentic and not artificial. Maintain perfect image quality and resolution."
               },
               {
                 type: "image_url",
@@ -62,6 +62,8 @@ serve(async (req) => {
         modalities: ["image", "text"]
       })
     });
+
+    console.log('AI response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -94,10 +96,10 @@ serve(async (req) => {
     const base64Data = generatedImageBase64.replace(/^data:image\/\w+;base64,/, '');
     const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-    // Upload to Supabase Storage
-    const fileName = `smile-simulation-${analysisId}-${Date.now()}.png`;
+    // Upload to Supabase Storage (using simetria-images bucket)
+    const fileName = `smile-simulations/${analysisId}-${Date.now()}.png`;
     const { error: uploadError } = await supabase.storage
-      .from('analysis-images')
+      .from('simetria-images')
       .upload(fileName, imageBytes, {
         contentType: 'image/png',
         upsert: true
@@ -108,12 +110,17 @@ serve(async (req) => {
       throw new Error('Failed to save generated image');
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('analysis-images')
-      .getPublicUrl(fileName);
+    // Get signed URL (bucket is private)
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('simetria-images')
+      .createSignedUrl(fileName, 60 * 60 * 24 * 30); // 30 days
 
-    const smileImageUrl = urlData.publicUrl;
+    if (urlError || !urlData?.signedUrl) {
+      console.error('URL generation error:', urlError);
+      throw new Error('Failed to generate image URL');
+    }
+
+    const smileImageUrl = urlData.signedUrl;
 
     // Update analysis with smile simulation URL
     const { error: updateError } = await supabase
