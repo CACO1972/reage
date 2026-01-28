@@ -74,6 +74,7 @@ export default function Scan() {
   const streamRef = useRef<MediaStream | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Photos state
@@ -158,8 +159,27 @@ export default function Scan() {
     }
   }, [stopCamera]);
 
-  // Capture photo from video
-  const capturePhoto = useCallback(async () => {
+  // Start countdown then capture
+  const startCountdown = useCallback(() => {
+    if (!videoRef.current || countdown !== null) return;
+    
+    setCountdown(3);
+    
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
+      } else {
+        clearInterval(interval);
+        setCountdown(null);
+        captureNow();
+      }
+    }, 800);
+  }, [countdown]);
+
+  // Actual capture (called after countdown)
+  const captureNow = useCallback(async () => {
     if (!videoRef.current) return;
     
     setIsCapturing(true);
@@ -232,6 +252,11 @@ export default function Scan() {
       setIsCapturing(false);
     }
   }, [currentMode, stopCamera]);
+
+  // Public capture function that starts countdown
+  const capturePhoto = useCallback(() => {
+    startCountdown();
+  }, [startCountdown]);
 
   // Handle gallery file selection
   const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,15 +491,40 @@ export default function Scan() {
                 {/* Simple visual overlay */}
                 <SimpleCameraOverlay currentMode={currentMode} />
                 
+                {/* Countdown overlay */}
+                <AnimatePresence>
+                  {countdown !== null && (
+                    <motion.div 
+                      className="absolute inset-0 flex items-center justify-center z-30 bg-black/40"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <motion.span
+                        key={countdown}
+                        className="text-8xl font-display font-bold text-white drop-shadow-lg"
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 1.5, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {countdown}
+                      </motion.span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
                 {/* Capture button */}
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
                   <button
                     onClick={capturePhoto}
-                    disabled={isCapturing}
+                    disabled={isCapturing || countdown !== null}
                     className="w-18 h-18 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
                     style={{ width: '72px', height: '72px' }}
                   >
                     {isCapturing ? (
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    ) : countdown !== null ? (
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
                     ) : (
                       <div className="w-14 h-14 rounded-full bg-white" />
