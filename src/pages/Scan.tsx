@@ -11,15 +11,17 @@ import {
   Upload,
   X,
   CheckCircle2,
-  ArrowRight,
   AlertTriangle,
   Sparkles,
   RotateCcw,
   Loader2,
+  Smile,
+  Meh,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type CaptureMode = 'rest' | 'smile';
+type FlowState = 'initial' | 'camera' | 'preview' | 'transition' | 'complete';
 
 interface CaptureResult {
   file: File;
@@ -72,12 +74,10 @@ export default function Scan() {
   // Camera state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [flowState, setFlowState] = useState<FlowState>('initial');
   const [isCapturing, setIsCapturing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Photos state
   const [restPhoto, setRestPhoto] = useState<CaptureResult | null>(null);
@@ -89,34 +89,20 @@ export default function Scan() {
   const [isBootstrappingAuth, setIsBootstrappingAuth] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-capture delay (seconds before starting countdown)
-  const AUTO_CAPTURE_DELAY = 4;
-
   const readyForAnalysis = !!restPhoto && !!smilePhoto;
-
-  // Clear auto-timer
-  const clearAutoTimer = useCallback(() => {
-    if (autoTimerRef.current) {
-      clearInterval(autoTimerRef.current);
-      autoTimerRef.current = null;
-    }
-    setAutoCountdown(null);
-  }, []);
 
   // Stop camera and cleanup tracks
   const stopCamera = useCallback(() => {
-    clearAutoTimer();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-    setIsCameraOpen(false);
-  }, [clearAutoTimer]);
+  }, []);
 
   // Open camera with getUserMedia
   const openCamera = useCallback(async () => {
     setError(null);
+    setFlowState('camera');
     
     try {
-      // Try front camera first with ideal constraints
       let stream: MediaStream;
       
       try {
@@ -129,14 +115,12 @@ export default function Scan() {
           audio: false,
         });
       } catch {
-        // Fallback to basic facingMode
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user' },
             audio: false,
           });
         } catch {
-          // Final fallback: any camera
           stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false,
@@ -145,9 +129,7 @@ export default function Scan() {
       }
 
       streamRef.current = stream;
-      setIsCameraOpen(true);
 
-      // Wait for video element to be ready
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (videoRef.current) {
@@ -170,30 +152,13 @@ export default function Scan() {
       } else {
         setError('No se pudo acceder a la cámara. Usa "Subir desde galería".');
       }
+      setFlowState('initial');
       stopCamera();
     }
   }, [stopCamera]);
 
-  // Start auto-capture timer when camera opens
-  const startAutoCapture = useCallback(() => {
-    clearAutoTimer();
-    setAutoCountdown(AUTO_CAPTURE_DELAY);
-    
-    let remaining = AUTO_CAPTURE_DELAY;
-    autoTimerRef.current = setInterval(() => {
-      remaining -= 1;
-      if (remaining > 0) {
-        setAutoCountdown(remaining);
-      } else {
-        clearAutoTimer();
-        // Start the 3-2-1 countdown
-        startCountdownInternal();
-      }
-    }, 1000);
-  }, [clearAutoTimer]);
-
-  // Internal countdown that leads to capture
-  const startCountdownInternal = useCallback(() => {
+  // Start countdown and capture
+  const startCountdown = useCallback(() => {
     if (!videoRef.current || countdown !== null) return;
     
     setCountdown(3);
@@ -208,10 +173,10 @@ export default function Scan() {
         setCountdown(null);
         captureNow();
       }
-    }, 800);
+    }, 700);
   }, [countdown]);
 
-  // Actual capture (called after countdown)
+  // Actual capture
   const captureNow = useCallback(async () => {
     if (!videoRef.current) return;
     
@@ -231,7 +196,7 @@ export default function Scan() {
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('No canvas context');
       
-      // Mirror horizontally for natural selfie (scaleX(-1))
+      // Mirror horizontally
       ctx.translate(videoWidth, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
@@ -244,10 +209,8 @@ export default function Scan() {
         )
       );
 
-      // Process (downscale if needed)
       const { blob: processedBlob, width, height } = await processImage(blob);
       
-      // Check low resolution
       const minDim = Math.min(width, height);
       const isLowRes = minDim < 800;
 
@@ -264,18 +227,16 @@ export default function Scan() {
         if ('vibrate' in navigator) {
           navigator.vibrate(50);
         }
-      } catch {
-        // Haptic not supported
-      }
+      } catch {}
 
-      // Save photo and advance
+      stopCamera();
+
       if (currentMode === 'rest') {
         setRestPhoto({ file, preview, lowResWarning: isLowRes });
-        setCurrentMode('smile');
-        stopCamera();
+        setFlowState('preview');
       } else {
         setSmilePhoto({ file, preview, lowResWarning: isLowRes });
-        stopCamera();
+        setFlowState('complete');
       }
       
     } catch (e) {
@@ -285,12 +246,6 @@ export default function Scan() {
       setIsCapturing(false);
     }
   }, [currentMode, stopCamera]);
-
-  // Public capture function - cancels auto timer and starts countdown immediately
-  const capturePhoto = useCallback(() => {
-    clearAutoTimer();
-    startCountdownInternal();
-  }, [clearAutoTimer, startCountdownInternal]);
 
   // Handle gallery file selection
   const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -316,9 +271,10 @@ export default function Scan() {
       
       if (currentMode === 'rest') {
         setRestPhoto({ file: processedFile, preview, lowResWarning: isLowRes });
-        setCurrentMode('smile');
+        setFlowState('preview');
       } else {
         setSmilePhoto({ file: processedFile, preview, lowResWarning: isLowRes });
+        setFlowState('complete');
       }
     } catch (err) {
       console.error('File processing error:', err);
@@ -329,6 +285,17 @@ export default function Scan() {
     
     e.target.value = '';
   };
+
+  // Advance to smile capture
+  const advanceToSmile = useCallback(() => {
+    setFlowState('transition');
+    
+    // Show transition screen briefly
+    setTimeout(() => {
+      setCurrentMode('smile');
+      setFlowState('initial');
+    }, 1500);
+  }, []);
 
   // Retake photo
   const retakePhoto = useCallback((mode: CaptureMode) => {
@@ -341,33 +308,26 @@ export default function Scan() {
     } else {
       if (smilePhoto?.preview) URL.revokeObjectURL(smilePhoto.preview);
       setSmilePhoto(null);
-      setCurrentMode('smile');
     }
-    openCamera();
-  }, [restPhoto, smilePhoto, openCamera]);
+    setFlowState('initial');
+  }, [restPhoto, smilePhoto]);
 
-  // Start auto-capture when camera opens
-  useEffect(() => {
-    if (isCameraOpen && videoRef.current) {
-      // Small delay to let user position themselves, then start auto timer
-      const delay = setTimeout(() => {
-        startAutoCapture();
-      }, 500);
-      return () => clearTimeout(delay);
-    }
-  }, [isCameraOpen, startAutoCapture]);
+  // Cancel camera
+  const cancelCamera = useCallback(() => {
+    stopCamera();
+    setFlowState(restPhoto || smilePhoto ? 'preview' : 'initial');
+  }, [stopCamera, restPhoto, smilePhoto]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      clearAutoTimer();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (restPhoto?.preview) URL.revokeObjectURL(restPhoto.preview);
       if (smilePhoto?.preview) URL.revokeObjectURL(smilePhoto.preview);
     };
   }, []);
 
-  // Ensure we always have a session (anonymous by default)
+  // Ensure we always have a session
   useEffect(() => {
     if (authLoading) return;
     if (user) return;
@@ -408,7 +368,6 @@ export default function Scan() {
     setIsUploading(true);
 
     try {
-      // Upload rest image
       const restPath = `${user.id}/${Date.now()}-rest.jpg`;
       const { error: restError } = await supabase.storage
         .from('simetria-images')
@@ -416,7 +375,6 @@ export default function Scan() {
 
       if (restError) throw restError;
 
-      // Upload smile image
       const smilePath = `${user.id}/${Date.now()}-smile.jpg`;
       const { error: smileError } = await supabase.storage
         .from('simetria-images')
@@ -424,7 +382,6 @@ export default function Scan() {
 
       if (smileError) throw smileError;
 
-      // Get signed URLs
       const { data: restUrl } = await supabase.storage
         .from('simetria-images')
         .createSignedUrl(restPath, 3600 * 24 * 7);
@@ -437,7 +394,6 @@ export default function Scan() {
         throw new Error('Error generando URLs');
       }
 
-      // Create analysis record
       const { data: analysis, error: analysisError } = await supabase
         .from('analyses')
         .insert({
@@ -451,7 +407,6 @@ export default function Scan() {
 
       if (analysisError) throw analysisError;
 
-      // Trigger analysis edge functions
       supabase.functions.invoke('analyze-smile-basic', {
         body: { analysisId: analysis.id }
       });
@@ -479,51 +434,105 @@ export default function Scan() {
     }
   };
 
-  const currentPhoto = currentMode === 'rest' ? restPhoto : smilePhoto;
+  // Transition screen between photos
+  if (flowState === 'transition') {
+    return (
+      <Layout>
+        <div className="min-h-screen flex flex-col items-center justify-center px-6">
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 15 }}
+            className="text-center"
+          >
+            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            </div>
+            
+            <h2 className="text-2xl font-display font-bold mb-2">¡Foto 1 lista!</h2>
+            <p className="text-muted-foreground mb-8">Ahora necesitamos tu mejor sonrisa</p>
+            
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-primary/10 border border-primary/30"
+            >
+              <Smile className="w-8 h-8 text-primary" />
+              <div className="text-left">
+                <p className="font-semibold text-primary">Siguiente: Sonrisa</p>
+                <p className="text-sm text-muted-foreground">Sonrisa natural mostrando dientes</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="min-h-screen flex flex-col">
-        {/* Header with progress */}
-        <header className="px-4 pt-6 pb-3">
-          <div className="flex items-center gap-2 mb-2">
+        {/* Header */}
+        <header className="px-4 pt-6 pb-4">
+          <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-primary" />
-            <p className="text-xs text-primary font-medium">
-              Análisis estético dentofacial
-            </p>
+            <p className="text-xs text-primary font-medium">Análisis estético</p>
           </div>
           
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
-              restPhoto ? 'bg-green-500 text-white' : currentMode === 'rest' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all ${
+              currentMode === 'rest' 
+                ? 'bg-primary text-primary-foreground' 
+                : restPhoto 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-muted text-muted-foreground'
             }`}>
-              {restPhoto ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+              {restPhoto ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <Meh className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">1. Reposo</span>
             </div>
-            <div className={`flex-1 h-1 rounded-full ${restPhoto ? 'bg-green-500' : 'bg-muted'}`} />
-            <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
-              smilePhoto ? 'bg-green-500 text-white' : currentMode === 'smile' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+            
+            <div className="flex-1 h-0.5 bg-border" />
+            
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all ${
+              currentMode === 'smile' 
+                ? 'bg-primary text-primary-foreground' 
+                : smilePhoto 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-muted text-muted-foreground'
             }`}>
-              {smilePhoto ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+              {smilePhoto ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <Smile className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">2. Sonrisa</span>
             </div>
           </div>
 
-          <h1 className="text-xl font-display font-semibold">
-            {currentMode === 'rest' ? 'Foto en reposo' : 'Foto sonriendo'}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {currentMode === 'rest' 
-              ? 'Paso 1/2 · Rostro relajado, labios cerrados'
-              : 'Paso 2/2 · Sonrisa natural mostrando dientes'}
-          </p>
+          {/* Current step title */}
+          <div className="text-center">
+            <h1 className="text-2xl font-display font-bold">
+              {currentMode === 'rest' ? 'Foto en reposo' : 'Foto sonriendo'}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {currentMode === 'rest' 
+                ? 'Rostro relajado, labios cerrados naturalmente'
+                : 'Sonrisa natural mostrando tus dientes'}
+            </p>
+          </div>
         </header>
 
         {/* Main content */}
-        <main className="flex-1 px-4 pb-28 space-y-4">
-          {/* Camera/Photo area */}
-          <section className="relative">
-            {/* Camera view */}
-            {isCameraOpen && (
+        <main className="flex-1 px-4 pb-6">
+          {/* Camera view */}
+          {flowState === 'camera' && (
+            <div className="space-y-4">
               <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black relative">
                 <video
                   ref={videoRef}
@@ -534,44 +543,24 @@ export default function Scan() {
                   style={{ transform: 'scaleX(-1)' }}
                 />
                 
-                {/* Simple visual overlay */}
                 <SimpleCameraOverlay currentMode={currentMode} />
-                
-                {/* Auto-capture timer indicator */}
-                <AnimatePresence>
-                  {autoCountdown !== null && countdown === null && (
-                    <motion.div 
-                      className="absolute top-4 left-1/2 -translate-x-1/2 z-20"
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-sm text-white/90">
-                          Captura en {autoCountdown}s
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
-                {/* Countdown overlay (3-2-1) */}
+                {/* Countdown overlay */}
                 <AnimatePresence>
                   {countdown !== null && (
                     <motion.div 
-                      className="absolute inset-0 flex items-center justify-center z-30 bg-black/40"
+                      className="absolute inset-0 flex items-center justify-center z-30 bg-black/50"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
                       <motion.span
                         key={countdown}
-                        className="text-8xl font-display font-bold text-white drop-shadow-lg"
+                        className="text-9xl font-display font-bold text-white drop-shadow-2xl"
                         initial={{ scale: 0.5, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 1.5, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
+                        transition={{ duration: 0.25 }}
                       >
                         {countdown}
                       </motion.span>
@@ -579,286 +568,258 @@ export default function Scan() {
                   )}
                 </AnimatePresence>
                 
-                {/* Capture button - tap to capture immediately */}
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+                {/* Mode indicator badge */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md ${
+                    currentMode === 'rest' 
+                      ? 'bg-blue-500/80 text-white' 
+                      : 'bg-amber-500/80 text-white'
+                  }`}>
+                    {currentMode === 'rest' ? (
+                      <>
+                        <Meh className="w-5 h-5" />
+                        <span className="font-medium">Rostro relajado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Smile className="w-5 h-5" />
+                        <span className="font-medium">¡Sonríe!</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Capture button */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
                   <button
-                    onClick={capturePhoto}
+                    onClick={startCountdown}
                     disabled={isCapturing || countdown !== null}
-                    className="w-18 h-18 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
-                    style={{ width: '72px', height: '72px' }}
+                    className="w-20 h-20 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 shadow-2xl"
                   >
                     {isCapturing || countdown !== null ? (
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-white" />
+                      <div className="w-16 h-16 rounded-full bg-white" />
                     )}
                   </button>
-                  {autoCountdown !== null && countdown === null && (
-                    <p className="text-center text-xs text-white/70 mt-2">
-                      Toca para capturar ahora
-                    </p>
-                  )}
+                  <p className="text-center text-sm text-white/80 mt-3 font-medium">
+                    Toca para capturar
+                  </p>
                 </div>
               </div>
-            )}
 
-            {isCameraOpen && (
-              <div className="space-y-3 mt-3">
+              <Button onClick={cancelCamera} variant="ghost" className="w-full">
+                <X className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+            </div>
+          )}
+
+          {/* Photo preview after capture */}
+          {(flowState === 'preview' || flowState === 'complete') && (
+            <div className="space-y-4">
+              {/* Current captured photo */}
+              <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
+                <img
+                  src={currentMode === 'rest' ? restPhoto?.preview : smilePhoto?.preview}
+                  alt={currentMode === 'rest' ? 'Foto en reposo' : 'Foto sonriendo'}
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Success badge */}
+                <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-green-500 text-white text-sm font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {currentMode === 'rest' ? 'Foto 1 lista' : 'Foto 2 lista'}
+                </div>
+              </div>
+
+              {/* Low res warning */}
+              {((currentMode === 'rest' && restPhoto?.lowResWarning) || 
+                (currentMode === 'smile' && smilePhoto?.lowResWarning)) && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-400">
+                    Resolución baja. Para mejores resultados, usa más iluminación.
+                  </p>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={stopCamera}
-                  variant="ghost"
-                  className="w-full"
+                  onClick={() => retakePhoto(currentMode)}
+                  variant="outline"
+                  className="h-14"
                 >
-                  Cancelar
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Repetir
                 </Button>
-              </div>
-            )}
-
-            {/* Photo preview */}
-            {!isCameraOpen && !isCapturing && currentPhoto && (
-              <div className="space-y-3">
-                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-black">
-                  <img
-                    src={currentPhoto.preview}
-                    alt={currentMode === 'rest' ? 'Foto en reposo' : 'Foto sonriendo'}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 right-3">
-                    <CheckCircle2 className="w-8 h-8 text-green-500 drop-shadow-lg" />
-                  </div>
-                  
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-green-500/90 text-white text-[10px] font-medium flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Capturada
-                  </div>
-                </div>
                 
-                {/* Low resolution warning */}
-                <AnimatePresence>
-                  {currentPhoto.lowResWarning && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2"
-                    >
-                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-400">
-                        Resolución baja detectada. Para mejores resultados, usa mejor iluminación.
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-                {/* Actions: Repeat / Next */}
-                <div className="grid grid-cols-2 gap-3">
+                {flowState === 'preview' && currentMode === 'rest' ? (
                   <Button
-                    onClick={() => retakePhoto(currentMode)}
-                    variant="outline"
-                    className="h-12"
+                    onClick={advanceToSmile}
+                    variant="hero"
+                    className="h-14"
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Repetir
+                    <Smile className="w-5 h-5 mr-2" />
+                    Continuar
                   </Button>
-                  
+                ) : flowState === 'complete' ? (
+                  <Button
+                    onClick={handleAnalyze}
+                    disabled={!readyForAnalysis || isUploading}
+                    variant="hero"
+                    className="h-14"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Analizar
+                      </>
+                    )}
+                  </Button>
+                ) : null}
+              </div>
+
+              {/* Show both thumbnails when complete */}
+              {flowState === 'complete' && restPhoto && smilePhoto && (
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden border-2 border-green-500/50">
+                    <img src={restPhoto.preview} alt="Reposo" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs flex items-center gap-1">
+                      <Meh className="w-3 h-3" />
+                      Reposo
+                    </div>
+                  </div>
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden border-2 border-green-500/50">
+                    <img src={smilePhoto.preview} alt="Sonrisa" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs flex items-center gap-1">
+                      <Smile className="w-3 h-3" />
+                      Sonrisa
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Initial state - camera or gallery selection */}
+          {flowState === 'initial' && (
+            <div className="space-y-4">
+              {/* Visual instruction card */}
+              <div className={`rounded-2xl p-6 text-center ${
+                currentMode === 'rest' 
+                  ? 'bg-blue-500/10 border border-blue-500/30'
+                  : 'bg-amber-500/10 border border-amber-500/30'
+              }`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  currentMode === 'rest' ? 'bg-blue-500/20' : 'bg-amber-500/20'
+                }`}>
                   {currentMode === 'rest' ? (
-                    <Button
-                      onClick={() => {
-                        setCurrentMode('smile');
-                        setTimeout(() => openCamera(), 300);
-                      }}
-                      className="h-12"
-                      variant="hero"
-                    >
-                      Siguiente
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
+                    <Meh className="w-8 h-8 text-blue-400" />
                   ) : (
-                    <Button
-                      onClick={handleAnalyze}
-                      disabled={!readyForAnalysis || isUploading}
-                      className="h-12"
-                      variant="hero"
-                    >
-                      {isUploading ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Analizar
-                        </>
-                      )}
-                    </Button>
+                    <Smile className="w-8 h-8 text-amber-400" />
                   )}
                 </div>
+                <h3 className="text-lg font-semibold mb-1">
+                  {currentMode === 'rest' ? 'Expresión neutral' : 'Tu mejor sonrisa'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {currentMode === 'rest' 
+                    ? 'Mira al frente con el rostro relajado y los labios cerrados naturalmente'
+                    : 'Sonríe de forma natural mostrando tus dientes superiores'}
+                </p>
               </div>
-            )}
 
-            {/* Initial selection: Camera or Gallery */}
-            {!isCameraOpen && !isCapturing && !currentPhoto && (
-              <div className="space-y-3">
-                {/* Main camera button */}
-                <button
-                  onClick={openCamera}
-                  className="w-full border border-primary/50 rounded-2xl py-10 flex flex-col items-center justify-center text-sm text-foreground hover:bg-primary/5 transition-colors"
-                >
-                  <Camera className="w-12 h-12 mb-3 text-primary" />
-                  <span className="font-semibold text-base">Abrir cámara</span>
-                  <span className="text-xs text-muted-foreground mt-1">
-                    Captura manual
-                  </span>
-                </button>
-                
-                {/* Tips cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-green-400">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Bien
-                    </div>
-                    <ul className="mt-2 text-[11px] text-muted-foreground space-y-1">
-                      <li>• Luz frontal uniforme</li>
-                      <li>• Rostro centrado</li>
-                      <li>• Sin accesorios</li>
-                    </ul>
+              {/* Camera button */}
+              <Button
+                onClick={openCamera}
+                variant="hero"
+                className="w-full h-16 text-lg"
+              >
+                <Camera className="w-6 h-6 mr-3" />
+                Abrir cámara
+              </Button>
+              
+              {/* Tips */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border/50 bg-card/30 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-400 mb-2">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Recomendado
                   </div>
-                  <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                      <X className="w-4 h-4" />
-                      Evitar
-                    </div>
-                    <ul className="mt-2 text-[11px] text-muted-foreground space-y-1">
-                      <li>• Sombras fuertes</li>
-                      <li>• Ángulo inclinado</li>
-                      <li>• Lentes/gorras</li>
-                    </ul>
-                  </div>
+                  <ul className="text-[11px] text-muted-foreground space-y-1">
+                    <li>• Luz frontal uniforme</li>
+                    <li>• Rostro centrado</li>
+                    <li>• Sin lentes/gorras</li>
+                  </ul>
                 </div>
-
-                {/* Fallback gallery option */}
-                <label className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                  <Upload className="w-4 h-4" />
-                  <span>O subir desde galería</span>
-                  <input
-                    ref={galleryInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                    className="hidden"
-                    onChange={handleGalleryChange}
-                  />
-                </label>
+                <div className="rounded-xl border border-border/50 bg-card/30 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-destructive mb-2">
+                    <X className="w-3.5 h-3.5" />
+                    Evitar
+                  </div>
+                  <ul className="text-[11px] text-muted-foreground space-y-1">
+                    <li>• Sombras fuertes</li>
+                    <li>• Ángulo inclinado</li>
+                    <li>• Contraluz</li>
+                  </ul>
+                </div>
               </div>
+
+              {/* Gallery fallback */}
+              <label className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <Upload className="w-4 h-4" />
+                <span>O subir desde galería</span>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                  className="hidden"
+                  onChange={handleGalleryChange}
+                />
+              </label>
+
+              {/* Show rest photo thumbnail if exists */}
+              {restPhoto && currentMode === 'smile' && (
+                <div className="flex gap-3 mt-4">
+                  <div className="relative w-24 aspect-[3/4] rounded-xl overflow-hidden border-2 border-green-500/50">
+                    <img src={restPhoto.preview} alt="Reposo" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px]">
+                      ✓ Reposo
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center">
+                    <p className="text-sm text-muted-foreground">
+                      Foto 1 completada. Ahora toma la foto sonriendo.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Error message */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-2"
+              >
+                <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-xs text-destructive">{error}</p>
+              </motion.div>
             )}
-
-            {/* Error message */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-2"
-                >
-                  <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-xs text-destructive">{error}</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </section>
-
-          {/* Thumbnails - always visible */}
-          <section className="flex gap-3">
-            {/* Rest photo thumbnail */}
-            <motion.div 
-              className={`flex-1 aspect-[3/4] rounded-xl border overflow-hidden flex items-center justify-center cursor-pointer ${
-                restPhoto 
-                  ? 'border-green-500/50 bg-green-500/5' 
-                  : currentMode === 'rest'
-                    ? 'border-primary/50 border-dashed bg-primary/5'
-                    : 'border-border/50 border-dashed bg-muted/30'
-              }`}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (restPhoto && currentMode !== 'rest') {
-                  setCurrentMode('rest');
-                }
-              }}
-            >
-              {restPhoto ? (
-                <div className="relative w-full h-full">
-                  <img
-                    src={restPhoto.preview}
-                    alt="Reposo"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-1 right-1">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 drop-shadow-lg" />
-                  </div>
-                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/50 text-[10px] text-white">
-                    Reposo
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center px-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mx-auto mb-1 ${
-                    currentMode === 'rest' ? 'bg-primary/30 text-primary' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    <span className="text-[10px] font-bold">1</span>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">Reposo</span>
-                </div>
-              )}
-            </motion.div>
-
-            {/* Smile photo thumbnail */}
-            <motion.div 
-              className={`flex-1 aspect-[3/4] rounded-xl border overflow-hidden flex items-center justify-center cursor-pointer ${
-                smilePhoto 
-                  ? 'border-green-500/50 bg-green-500/5' 
-                  : currentMode === 'smile'
-                    ? 'border-primary/50 border-dashed bg-primary/5'
-                    : 'border-border/50 border-dashed bg-muted/30'
-              }`}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (smilePhoto && currentMode !== 'smile') {
-                  setCurrentMode('smile');
-                } else if (restPhoto && !smilePhoto) {
-                  setCurrentMode('smile');
-                }
-              }}
-            >
-              {smilePhoto ? (
-                <div className="relative w-full h-full">
-                  <img
-                    src={smilePhoto.preview}
-                    alt="Sonrisa"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-1 right-1">
-                    <CheckCircle2 className="w-5 h-5 text-green-500 drop-shadow-lg" />
-                  </div>
-                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/50 text-[10px] text-white">
-                    Sonrisa
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center px-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mx-auto mb-1 ${
-                    currentMode === 'smile' ? 'bg-primary/30 text-primary' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    <span className="text-[10px] font-bold">2</span>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">Sonrisa</span>
-                </div>
-              )}
-            </motion.div>
-          </section>
+          </AnimatePresence>
         </main>
 
-        {/* Footer CTA - only show when both photos ready */}
+        {/* Fixed footer CTA when both photos ready */}
         <AnimatePresence>
-          {readyForAnalysis && currentMode === 'smile' && smilePhoto && (
+          {flowState === 'complete' && readyForAnalysis && (
             <motion.footer 
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -872,7 +833,7 @@ export default function Scan() {
               >
                 {isUploading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Subiendo...
                   </>
                 ) : (
