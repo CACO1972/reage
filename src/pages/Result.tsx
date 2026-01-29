@@ -8,6 +8,8 @@ import { PremiumUpgrade } from '@/components/PremiumUpgrade';
 import { PromoCodeRedemption } from '@/components/PromoCodeRedemption';
 import { SimpleScoreDisplay } from '@/components/SimpleScoreDisplay';
 import { SimplifiedSmileSimulation } from '@/components/SimplifiedSmileSimulation';
+import { FacialProportionsTeaser } from '@/components/FacialProportionsTeaser';
+import { ImprovementSuggestionTeaser } from '@/components/ImprovementSuggestionTeaser';
 import { ScanningAnimation } from '@/components/ScanningAnimation';
 import { PremiumReport } from '@/components/PremiumReport';
 import { CouponQR } from '@/components/CouponQR';
@@ -258,11 +260,41 @@ export default function Result() {
                 </motion.div>
               )}
 
+              {/* Teaser: Facial Proportions (Premium locked) */}
+              {!isPremium && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <FacialProportionsTeaser
+                    facialThirds={analysis.facial_thirds_ratio}
+                    symmetryScore={analysis.facial_symmetry_score || 0}
+                    onUpgrade={scrollToPremium}
+                  />
+                </motion.div>
+              )}
+
+              {/* Teaser: Improvement Suggestions (Premium locked) */}
+              {!isPremium && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <ImprovementSuggestionTeaser
+                    smileScore={analysis.smile_score || 0}
+                    symmetryScore={analysis.facial_symmetry_score || 0}
+                    onUpgrade={scrollToPremium}
+                  />
+                </motion.div>
+              )}
+
               {/* Share Reward - Viral mechanic */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.6 }}
               >
                 <ShareReward
                   analysisId={analysis.id}
@@ -276,7 +308,7 @@ export default function Result() {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
+                    transition={{ delay: 0.7 }}
                     className="space-y-4"
                   >
                     {/* What's in the report teaser */}
@@ -331,7 +363,7 @@ export default function Result() {
                     className="space-y-6"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
+                    transition={{ delay: 0.7 }}
                   >
                     {/* Premium Badge */}
                     <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
