@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { SimpleCameraOverlay } from '@/components/SimpleCameraOverlay';
+import { FaceFramingOverlay } from '@/components/FaceFramingOverlay';
 import {
   Camera,
   Upload,
@@ -543,7 +543,7 @@ export default function Scan() {
                   style={{ transform: 'scaleX(-1)' }}
                 />
                 
-                <SimpleCameraOverlay currentMode={currentMode} />
+                <FaceFramingOverlay currentMode={currentMode} />
 
                 {/* Countdown overlay */}
                 <AnimatePresence>
