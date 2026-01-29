@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { PremiumUpgrade } from '@/components/PremiumUpgrade';
+import { PromoCodeRedemption } from '@/components/PromoCodeRedemption';
 import { SimpleScoreDisplay } from '@/components/SimpleScoreDisplay';
 import { SimplifiedSmileSimulation } from '@/components/SimplifiedSmileSimulation';
 import { ScanningAnimation } from '@/components/ScanningAnimation';
@@ -315,6 +316,15 @@ export default function Result() {
                     </div>
 
                     <PremiumUpgrade analysisId={analysis.id} onSuccess={() => fetchAnalysis()} />
+                    
+                    {/* Promo Code Option */}
+                    <div className="pt-2">
+                      <PromoCodeRedemption 
+                        analysisId={analysis.id} 
+                        onSuccess={() => fetchAnalysis()} 
+                        compact 
+                      />
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div 
