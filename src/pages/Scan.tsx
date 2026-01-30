@@ -773,10 +773,30 @@ export default function Scan() {
                 </div>
               </div>
 
-              <Button onClick={cancelCamera} variant="ghost" className="w-full">
-                <X className="w-4 h-4 mr-2" />
-                Cancelar
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={cancelCamera} variant="ghost" className="flex-1">
+                  <X className="w-4 h-4 mr-2" />
+                  Cancelar
+                </Button>
+                
+                <label className="flex-1">
+                  <Button variant="outline" className="w-full" asChild>
+                    <span>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Galería
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                    className="hidden"
+                    onChange={(e) => {
+                      stopCamera();
+                      handleGalleryChange(e);
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           )}
 
