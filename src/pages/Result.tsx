@@ -31,6 +31,7 @@ interface Analysis {
   mode: 'freemium' | 'premium';
   frontal_rest_url: string | null;
   frontal_smile_url: string | null;
+  smile_simulation_url?: string | null;
   facial_symmetry_score: number | null;
   facial_midline_deviation_mm: number | null;
   facial_thirds_ratio: { upper: number; middle: number; lower: number } | null;
@@ -254,7 +255,7 @@ export default function Result() {
                   </h3>
                   <SimplifiedSmileSimulation
                     restImageUrl={analysis.frontal_rest_url}
-                    smileImageUrl={null}
+                    smileImageUrl={analysis.smile_simulation_url ?? null}
                     analysisId={analysis.id}
                     autoGenerate={true}
                   />

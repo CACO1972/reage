@@ -30,6 +30,7 @@ export type Database = {
           mode: Database["public"]["Enums"]["analysis_mode"]
           raw_ai_payload: Json | null
           smile_score: number | null
+          smile_simulation_url: string | null
           user_id: string
         }
         Insert: {
@@ -47,6 +48,7 @@ export type Database = {
           mode?: Database["public"]["Enums"]["analysis_mode"]
           raw_ai_payload?: Json | null
           smile_score?: number | null
+          smile_simulation_url?: string | null
           user_id: string
         }
         Update: {
@@ -64,6 +66,7 @@ export type Database = {
           mode?: Database["public"]["Enums"]["analysis_mode"]
           raw_ai_payload?: Json | null
           smile_score?: number | null
+          smile_simulation_url?: string | null
           user_id?: string
         }
         Relationships: []
