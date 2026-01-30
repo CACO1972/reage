@@ -254,8 +254,9 @@ export default function Result() {
                   </h3>
                   <SimplifiedSmileSimulation
                     restImageUrl={analysis.frontal_rest_url}
-                    smileImageUrl={analysis.frontal_smile_url}
+                    smileImageUrl={null}
                     analysisId={analysis.id}
+                    autoGenerate={true}
                   />
                 </motion.div>
               )}
