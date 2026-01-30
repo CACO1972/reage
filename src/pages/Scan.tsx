@@ -82,8 +82,11 @@ export default function Scan() {
   // Auto-capture state
   const [autoCaptureReady, setAutoCaptureReady] = useState(false);
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
+  const [isValidatingPosition, setIsValidatingPosition] = useState(false);
+  const [positionValid, setPositionValid] = useState(false);
   const autoCaptureTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stabilityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Photos state
   const [restPhoto, setRestPhoto] = useState<CaptureResult | null>(null);
@@ -107,8 +110,14 @@ export default function Scan() {
       clearTimeout(stabilityTimerRef.current);
       stabilityTimerRef.current = null;
     }
+    if (validationIntervalRef.current) {
+      clearInterval(validationIntervalRef.current);
+      validationIntervalRef.current = null;
+    }
     setAutoCaptureReady(false);
     setAutoCaptureCountdown(null);
+    setPositionValid(false);
+    setIsValidatingPosition(false);
   }, []);
 
   // Stop camera and cleanup tracks
@@ -349,34 +358,119 @@ export default function Scan() {
     };
   }, [clearAutoCapture]);
 
-  // Auto-capture after camera is stable (3 seconds after opening)
+  // Validate face position by capturing a frame and checking with AI
+  const validateFacePosition = useCallback(async (): Promise<boolean> => {
+    if (!videoRef.current) return false;
+    
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      
+      // Use smaller resolution for faster validation
+      const scale = 0.5;
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return false;
+      
+      // Mirror horizontally like the actual capture
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const blob = await new Promise<Blob | null>((resolve) => 
+        canvas.toBlob(resolve, 'image/jpeg', 0.6)
+      );
+      
+      if (!blob) return false;
+      
+      // Convert to base64
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+      
+      // Call smart-crop-face to validate
+      const { data, error } = await supabase.functions.invoke('smart-crop-face', {
+        body: { imageBase64: base64 }
+      });
+      
+      if (error) {
+        console.warn('[Validation] Edge function error:', error);
+        return false;
+      }
+      
+      // Check if face is detected and well-framed
+      const isValid = data?.success && !data?.wasAdapted;
+      console.log('[Validation] Result:', { success: data?.success, wasAdapted: data?.wasAdapted, isValid });
+      
+      return isValid;
+    } catch (e) {
+      console.warn('[Validation] Error:', e);
+      return false;
+    }
+  }, []);
+
+  // Auto-capture with face position validation
   useEffect(() => {
     if (flowState !== 'camera') {
       clearAutoCapture();
       return;
     }
 
-    // Wait 3 seconds for user to position themselves, then start auto-capture
+    let consecutiveValid = 0;
+    const REQUIRED_CONSECUTIVE = 2; // Need 2 consecutive valid checks
+    
+    // Start validation after 1.5 seconds to let camera stabilize
     stabilityTimerRef.current = setTimeout(() => {
-      setAutoCaptureReady(true);
-      setAutoCaptureCountdown(3);
+      setIsValidatingPosition(true);
       
-      let count = 3;
-      autoCaptureTimerRef.current = setInterval(() => {
-        count -= 1;
-        if (count > 0) {
-          setAutoCaptureCountdown(count);
+      // Check position every 1.5 seconds
+      validationIntervalRef.current = setInterval(async () => {
+        const isValid = await validateFacePosition();
+        setPositionValid(isValid);
+        
+        if (isValid) {
+          consecutiveValid++;
+          console.log(`[AutoCapture] Valid position ${consecutiveValid}/${REQUIRED_CONSECUTIVE}`);
+          
+          if (consecutiveValid >= REQUIRED_CONSECUTIVE) {
+            // Position confirmed - start capture countdown
+            if (validationIntervalRef.current) {
+              clearInterval(validationIntervalRef.current);
+              validationIntervalRef.current = null;
+            }
+            setIsValidatingPosition(false);
+            setAutoCaptureReady(true);
+            setAutoCaptureCountdown(3);
+            
+            let count = 3;
+            autoCaptureTimerRef.current = setInterval(() => {
+              count -= 1;
+              if (count > 0) {
+                setAutoCaptureCountdown(count);
+              } else {
+                clearAutoCapture();
+                captureNow();
+              }
+            }, 1000);
+          }
         } else {
-          clearAutoCapture();
-          captureNow();
+          // Reset consecutive counter if position is not valid
+          consecutiveValid = 0;
         }
-      }, 1000);
-    }, 3000);
+      }, 1500);
+    }, 1500);
 
     return () => {
       clearAutoCapture();
     };
-  }, [flowState, clearAutoCapture, captureNow]);
+  }, [flowState, clearAutoCapture, captureNow, validateFacePosition]);
 
   // Ensure we always have a session
   useEffect(() => {
@@ -596,6 +690,13 @@ export default function Scan() {
                 
                 <FaceFramingOverlay 
                   currentMode={currentMode} 
+                  showValidation={isValidatingPosition || positionValid}
+                  validation={{
+                    faceDetected: positionValid,
+                    centered: positionValid,
+                    sizeOk: positionValid,
+                    frontal: positionValid,
+                  }}
                   autoCapturing={autoCaptureReady}
                   autoCaptureCountdown={autoCaptureCountdown ?? undefined}
                 />
@@ -663,7 +764,11 @@ export default function Scan() {
                     )}
                   </button>
                   <p className="text-center text-sm text-white/80 mt-3 font-medium">
-                    {autoCaptureReady ? 'Captura automática...' : 'Posiciónate • Captura auto'}
+                    {autoCaptureReady 
+                      ? 'Captura automática...' 
+                      : isValidatingPosition 
+                        ? 'Verificando posición...' 
+                        : 'Centra tu rostro'}
                   </p>
                 </div>
               </div>
