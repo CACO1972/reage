@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertCircle, Eye, Ruler } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Eye, Ruler, Camera } from 'lucide-react';
 
 interface FaceFramingOverlayProps {
   currentMode: 'rest' | 'smile';
@@ -12,20 +12,25 @@ interface FaceFramingOverlayProps {
     sizeOk: boolean;
     frontal: boolean;
   };
+  /** Show auto-capture countdown */
+  autoCapturing?: boolean;
+  autoCaptureCountdown?: number;
 }
 
 /**
  * Professional face framing overlay with standardization guides
  * - Oval face guide with proper proportions
- * - Center axis line for midline alignment
+ * - PROMINENT center midline for alignment
  * - Facial thirds reference lines
  * - Eye level guide
- * - Validation indicators
+ * - Auto-capture indicator when position is valid
  */
 export function FaceFramingOverlay({ 
   currentMode, 
   showValidation = false,
-  validation 
+  validation,
+  autoCapturing = false,
+  autoCaptureCountdown
 }: FaceFramingOverlayProps) {
   const isValid = validation && 
     validation.faceDetected && 
@@ -94,15 +99,35 @@ export function FaceFramingOverlay({
 
         {/* === STANDARDIZATION GUIDES === */}
         
-        {/* Center vertical axis (midline) */}
+        {/* Center vertical axis (MIDLINE) - More prominent */}
         <motion.line 
-          x1="50" y1="6" x2="50" y2="100"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="0.3"
-          strokeDasharray="2 3"
+          x1="50" y1="6" x2="50" y2="98"
+          stroke={isValid ? "#22c55e" : "hsl(var(--primary))"}
+          strokeWidth="0.6"
+          strokeDasharray="3 2"
+          initial={{ opacity: 0.5 }}
+          animate={{ opacity: isValid ? 1 : 0.85 }}
+          transition={{ duration: 0.3 }}
+        />
+        
+        {/* Midline center marker */}
+        <motion.circle
+          cx="50"
+          cy="52"
+          r="1.5"
+          fill="none"
+          stroke={isValid ? "#22c55e" : "hsl(var(--primary))"}
+          strokeWidth="0.4"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.6 }}
-          transition={{ delay: 0.5 }}
+          animate={{ opacity: 0.8, scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+        
+        {/* Midline top indicator */}
+        <motion.polygon
+          points="50,4 48,8 52,8"
+          fill={isValid ? "#22c55e" : "hsl(var(--primary))"}
+          opacity={0.7}
         />
 
         {/* === FACIAL THIRDS GUIDES === */}
@@ -215,6 +240,22 @@ export function FaceFramingOverlay({
         </div>
       )}
 
+      {/* Auto-capture indicator */}
+      {autoCapturing && autoCaptureCountdown !== undefined && (
+        <motion.div 
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+        >
+          <div className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl bg-green-500/30 border-2 border-green-500/60 backdrop-blur-md">
+            <Camera className="w-8 h-8 text-green-400 animate-pulse" />
+            <span className="text-green-400 font-bold text-lg">
+              Capturando en {autoCaptureCountdown}...
+            </span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Mode-specific instruction */}
       <motion.div 
         className="absolute bottom-20 left-4 right-4"
@@ -228,13 +269,24 @@ export function FaceFramingOverlay({
               ? 'bg-green-500/20 border border-green-500/40' 
               : 'bg-black/60 border border-white/10'
           }`}>
-            <div className="flex items-center gap-1.5">
-              <Ruler className="w-4 h-4 text-primary/80" />
-              <Eye className="w-4 h-4 text-primary/80" />
-            </div>
-            <span className="text-sm text-white/90 font-medium">
-              Alinea tu rostro con las guías
-            </span>
+            {isValid ? (
+              <>
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-green-300 font-medium">
+                  ¡Perfecto! Mantén la posición
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <Ruler className="w-4 h-4 text-primary/80" />
+                  <Eye className="w-4 h-4 text-primary/80" />
+                </div>
+                <span className="text-sm text-white/90 font-medium">
+                  Alinea tu rostro con la línea central
+                </span>
+              </>
+            )}
           </div>
         </div>
       </motion.div>

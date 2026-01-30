@@ -78,6 +78,12 @@ export default function Scan() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Auto-capture state
+  const [autoCaptureReady, setAutoCaptureReady] = useState(false);
+  const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
+  const autoCaptureTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stabilityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Photos state
   const [restPhoto, setRestPhoto] = useState<CaptureResult | null>(null);
@@ -91,11 +97,26 @@ export default function Scan() {
 
   const readyForAnalysis = !!restPhoto && !!smilePhoto;
 
+  // Clear auto-capture timers
+  const clearAutoCapture = useCallback(() => {
+    if (autoCaptureTimerRef.current) {
+      clearInterval(autoCaptureTimerRef.current);
+      autoCaptureTimerRef.current = null;
+    }
+    if (stabilityTimerRef.current) {
+      clearTimeout(stabilityTimerRef.current);
+      stabilityTimerRef.current = null;
+    }
+    setAutoCaptureReady(false);
+    setAutoCaptureCountdown(null);
+  }, []);
+
   // Stop camera and cleanup tracks
   const stopCamera = useCallback(() => {
+    clearAutoCapture();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-  }, []);
+  }, [clearAutoCapture]);
 
   // Open camera with getUserMedia
   const openCamera = useCallback(async () => {
@@ -321,11 +342,41 @@ export default function Scan() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      clearAutoCapture();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (restPhoto?.preview) URL.revokeObjectURL(restPhoto.preview);
       if (smilePhoto?.preview) URL.revokeObjectURL(smilePhoto.preview);
     };
-  }, []);
+  }, [clearAutoCapture]);
+
+  // Auto-capture after camera is stable (3 seconds after opening)
+  useEffect(() => {
+    if (flowState !== 'camera') {
+      clearAutoCapture();
+      return;
+    }
+
+    // Wait 3 seconds for user to position themselves, then start auto-capture
+    stabilityTimerRef.current = setTimeout(() => {
+      setAutoCaptureReady(true);
+      setAutoCaptureCountdown(3);
+      
+      let count = 3;
+      autoCaptureTimerRef.current = setInterval(() => {
+        count -= 1;
+        if (count > 0) {
+          setAutoCaptureCountdown(count);
+        } else {
+          clearAutoCapture();
+          captureNow();
+        }
+      }, 1000);
+    }, 3000);
+
+    return () => {
+      clearAutoCapture();
+    };
+  }, [flowState, clearAutoCapture, captureNow]);
 
   // Ensure we always have a session
   useEffect(() => {
@@ -543,9 +594,13 @@ export default function Scan() {
                   style={{ transform: 'scaleX(-1)' }}
                 />
                 
-                <FaceFramingOverlay currentMode={currentMode} />
+                <FaceFramingOverlay 
+                  currentMode={currentMode} 
+                  autoCapturing={autoCaptureReady}
+                  autoCaptureCountdown={autoCaptureCountdown ?? undefined}
+                />
 
-                {/* Countdown overlay */}
+                {/* Countdown overlay (manual capture) */}
                 <AnimatePresence>
                   {countdown !== null && (
                     <motion.div 
@@ -589,21 +644,26 @@ export default function Scan() {
                   </div>
                 </div>
                 
-                {/* Capture button */}
+                {/* Capture button - also works as manual override */}
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
                   <button
-                    onClick={startCountdown}
+                    onClick={() => {
+                      clearAutoCapture();
+                      startCountdown();
+                    }}
                     disabled={isCapturing || countdown !== null}
                     className="w-20 h-20 rounded-full border-4 border-white bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 shadow-2xl"
                   >
                     {isCapturing || countdown !== null ? (
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    ) : autoCaptureReady ? (
+                      <div className="w-16 h-16 rounded-full bg-green-400 animate-pulse" />
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-white" />
                     )}
                   </button>
                   <p className="text-center text-sm text-white/80 mt-3 font-medium">
-                    Toca para capturar
+                    {autoCaptureReady ? 'Captura automática...' : 'Posiciónate • Captura auto'}
                   </p>
                 </div>
               </div>
