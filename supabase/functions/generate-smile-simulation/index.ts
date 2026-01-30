@@ -122,13 +122,13 @@ serve(async (req) => {
 
     const smileImageUrl = urlData.signedUrl;
 
-    // Update analysis with smile simulation URL
-    const { error: updateError } = await supabase
-      .from('analyses')
-      .update({
-        frontal_smile_url: smileImageUrl
-      })
-      .eq('id', analysisId);
+     // Update analysis with smile simulation URL (keep the real captured smile intact)
+     const { error: updateError } = await supabase
+       .from('analyses')
+       .update({
+         smile_simulation_url: smileImageUrl,
+       })
+       .eq('id', analysisId);
 
     if (updateError) {
       console.error('Update error:', updateError);
