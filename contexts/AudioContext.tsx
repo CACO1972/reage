@@ -1,0 +1,94 @@
+"use client"
+
+import { createContext, useContext, ReactNode, useCallback, useEffect, useState, useRef } from 'react'
+
+interface AudioContextType {
+  isPlaying: boolean
+  isLoaded: boolean
+  volume: number
+  play: (vol?: number) => Promise<void>
+  pause: () => void
+  setVolume: (vol: number) => void
+  loadAudio: () => Promise<void>
+}
+
+const AudioCtx = createContext<AudioContextType | null>(null)
+
+export function AudioProvider({ children }: { children: ReactNode }) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [volume, setVolumeState] = useState(0.12)
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const loadAudio = useCallback(async () => {
+    console.info('Audio ambiente deshabilitado (requiere ElevenLabs Sound Generation)')
+  }, [])
+
+  const fadeIn = useCallback((targetVolume: number) => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const duration = 2500
+    const steps = 40
+    const stepDuration = duration / steps
+    const volumeStep = targetVolume / steps
+    let currentStep = 0
+
+    const fadeInterval = setInterval(() => {
+      currentStep++
+      audio.volume = Math.min(volumeStep * currentStep, targetVolume)
+      
+      if (currentStep >= steps) {
+        clearInterval(fadeInterval)
+      }
+    }, stepDuration)
+  }, [])
+
+  const play = useCallback(async (targetVolume?: number) => {
+    if (!audioRef.current) return
+
+    try {
+      await audioRef.current.play()
+      setIsPlaying(true)
+      fadeIn(targetVolume ?? volume)
+    } catch (error) {
+      console.warn('Could not play audio:', error)
+    }
+  }, [fadeIn, volume])
+
+  const pause = useCallback(() => {
+    if (!audioRef.current) return
+    audioRef.current.pause()
+    setIsPlaying(false)
+  }, [])
+
+  const setVolume = useCallback((newVolume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, newVolume))
+    setVolumeState(clampedVolume)
+    if (audioRef.current) {
+      audioRef.current.volume = clampedVolume
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+    }
+  }, [])
+
+  return (
+    <AudioCtx.Provider value={{ isPlaying, isLoaded, volume, play, pause, setVolume, loadAudio }}>
+      {children}
+    </AudioCtx.Provider>
+  )
+}
+
+export function useAudio() {
+  const ctx = useContext(AudioCtx)
+  if (!ctx) throw new Error('useAudio must be used within AudioProvider')
+  return ctx
+}
