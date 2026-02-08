@@ -106,6 +106,165 @@ export type Database = {
           },
         ]
       }
+      armonia_beauty_scores: {
+        Row: {
+          id: string
+          max_score: number | null
+          mean_score: number
+          min_score: number | null
+          num_raters: number | null
+          score_range: number | null
+          std_score: number | null
+          subject_id: string | null
+        }
+        Insert: {
+          id?: string
+          max_score?: number | null
+          mean_score: number
+          min_score?: number | null
+          num_raters?: number | null
+          score_range?: number | null
+          std_score?: number | null
+          subject_id?: string | null
+        }
+        Update: {
+          id?: string
+          max_score?: number | null
+          mean_score?: number
+          min_score?: number | null
+          num_raters?: number | null
+          score_range?: number | null
+          std_score?: number | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "armonia_beauty_scores_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "armonia_complete_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "armonia_beauty_scores_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "armonia_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      armonia_correlations: {
+        Row: {
+          context_filter: Json | null
+          correlation_r: number
+          created_at: string | null
+          id: string
+          is_significant: boolean | null
+          metric_name: string
+          sample_size: number | null
+        }
+        Insert: {
+          context_filter?: Json | null
+          correlation_r: number
+          created_at?: string | null
+          id?: string
+          is_significant?: boolean | null
+          metric_name: string
+          sample_size?: number | null
+        }
+        Update: {
+          context_filter?: Json | null
+          correlation_r?: number
+          created_at?: string | null
+          id?: string
+          is_significant?: boolean | null
+          metric_name?: string
+          sample_size?: number | null
+        }
+        Relationships: []
+      }
+      armonia_proportions: {
+        Row: {
+          face_ratio: number | null
+          id: string
+          interocular_ratio: number | null
+          middle_to_lower: number | null
+          mouth_ratio: number | null
+          nose_ratio: number | null
+          phi_approximation: number | null
+          subject_id: string | null
+          symmetry_score: number | null
+        }
+        Insert: {
+          face_ratio?: number | null
+          id?: string
+          interocular_ratio?: number | null
+          middle_to_lower?: number | null
+          mouth_ratio?: number | null
+          nose_ratio?: number | null
+          phi_approximation?: number | null
+          subject_id?: string | null
+          symmetry_score?: number | null
+        }
+        Update: {
+          face_ratio?: number | null
+          id?: string
+          interocular_ratio?: number | null
+          middle_to_lower?: number | null
+          mouth_ratio?: number | null
+          nose_ratio?: number | null
+          phi_approximation?: number | null
+          subject_id?: string | null
+          symmetry_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "armonia_proportions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "armonia_complete_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "armonia_proportions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "armonia_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      armonia_subjects: {
+        Row: {
+          created_at: string | null
+          dataset_category: string | null
+          dataset_source: string | null
+          ethnicity: string | null
+          filename: string
+          gender: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dataset_category?: string | null
+          dataset_source?: string | null
+          ethnicity?: string | null
+          filename: string
+          gender?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          dataset_category?: string | null
+          dataset_source?: string | null
+          ethnicity?: string | null
+          filename?: string
+          gender?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       clinic_appointments: {
         Row: {
           amount_clp: number
@@ -404,7 +563,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      armonia_complete_view: {
+        Row: {
+          dataset_category: string | null
+          ethnicity: string | null
+          face_ratio: number | null
+          filename: string | null
+          gender: string | null
+          id: string | null
+          mean_score: number | null
+          phi_approximation: number | null
+          score_range: number | null
+          std_score: number | null
+          symmetry_score: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
