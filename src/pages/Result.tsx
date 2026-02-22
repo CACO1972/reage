@@ -258,6 +258,8 @@ export default function Result() {
                     smileImageUrl={analysis.smile_simulation_url ?? null}
                     analysisId={analysis.id}
                     autoGenerate={true}
+                    isPremium={isPremium}
+                    onUpgrade={scrollToPremium}
                   />
                 </motion.div>
               )}

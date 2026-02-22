@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,7 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+function extractStoragePath(signedUrl: string): string | null {
+  try {
+    const url = new URL(signedUrl);
+    // Path format: /storage/v1/object/sign/<bucket>/<path>
+    const match = url.pathname.match(/\/storage\/v1\/object\/sign\/([^?]+)/);
+    if (match) {
+      const fullPath = match[1]; // e.g. "simetria-images/userId/file.jpg"
+      // Remove bucket name prefix
+      const parts = fullPath.split('/');
+      return parts.slice(1).join('/'); // remove "simetria-images"
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -33,6 +49,37 @@ serve(async (req) => {
       );
     }
 
+    // Download image directly from storage to avoid signed URL expiration issues
+    let imageBase64: string;
+    const storagePath = extractStoragePath(restImageUrl);
+    
+    if (storagePath) {
+      console.log('Downloading image from storage path:', storagePath);
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('simetria-images')
+        .download(storagePath);
+      
+      if (downloadError || !fileData) {
+        console.error('Storage download error:', downloadError);
+        throw new Error('Failed to download source image from storage');
+      }
+      
+      const arrayBuffer = await fileData.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      const mimeType = storagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      imageBase64 = `data:${mimeType};base64,${base64}`;
+      console.log('Image downloaded and converted to base64, size:', base64.length);
+    } else {
+      // Fallback: try using the URL directly
+      console.log('Could not extract storage path, using URL directly');
+      imageBase64 = restImageUrl;
+    }
+
     // Use Lovable AI to generate a smile simulation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -48,12 +95,21 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Generate a new image based on this portrait photo showing the same person with a natural, warm, and genuine smile. Keep the exact same person, lighting, background, and all facial features identical. Only change the mouth area to show a beautiful, natural smile with visible teeth. The smile should look authentic and not artificial. Maintain perfect image quality and resolution."
+                text: `Transform this portrait photo to show the SAME person with a beautiful, natural, warm smile showing teeth. 
+
+CRITICAL RULES:
+- Keep the EXACT same person, face shape, skin tone, hair, lighting, background, clothing
+- ONLY modify the mouth/lips area to create a natural smile
+- The smile must show upper teeth naturally
+- Make it look like a genuine, warm, confident smile - NOT artificial
+- Maintain identical image quality, resolution, framing and composition
+- Do NOT change eyes, nose, skin, or any other facial feature
+- The result must be photorealistic and indistinguishable from a real photo`
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: restImageUrl
+                  url: imageBase64
                 }
               }
             ]
@@ -81,22 +137,42 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error('AI generation failed');
+      throw new Error(`AI generation failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
-    const generatedImageBase64 = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
+    console.log('AI response keys:', Object.keys(data));
+    
+    // Try multiple response formats
+    let generatedImageBase64 = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
     if (!generatedImageBase64) {
-      console.error('No image in response:', JSON.stringify(data).substring(0, 500));
-      throw new Error('No image generated');
+      // Try inline_data format
+      const parts = data.choices?.[0]?.message?.content;
+      if (Array.isArray(parts)) {
+        for (const part of parts) {
+          if (part.type === 'image_url' && part.image_url?.url) {
+            generatedImageBase64 = part.image_url.url;
+            break;
+          }
+          if (part.inline_data) {
+            generatedImageBase64 = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
+            break;
+          }
+        }
+      }
     }
 
-    // Extract base64 data (remove data:image/png;base64, prefix)
-    const base64Data = generatedImageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    if (!generatedImageBase64) {
+      console.error('No image in response. Response structure:', JSON.stringify(data).substring(0, 1000));
+      throw new Error('No image generated by AI');
+    }
 
-    // Upload to Supabase Storage (using simetria-images bucket)
+    // Extract base64 data
+    const base64Data = generatedImageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const imageBytes = Uint8Array.from(atob(base64Data), (c: string) => c.charCodeAt(0));
+
+    // Upload to storage
     const fileName = `smile-simulations/${analysisId}-${Date.now()}.png`;
     const { error: uploadError } = await supabase.storage
       .from('simetria-images')
@@ -110,10 +186,10 @@ serve(async (req) => {
       throw new Error('Failed to save generated image');
     }
 
-    // Get signed URL (bucket is private)
+    // Get signed URL (30 days)
     const { data: urlData, error: urlError } = await supabase.storage
       .from('simetria-images')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 30); // 30 days
+      .createSignedUrl(fileName, 60 * 60 * 24 * 30);
 
     if (urlError || !urlData?.signedUrl) {
       console.error('URL generation error:', urlError);
@@ -122,13 +198,11 @@ serve(async (req) => {
 
     const smileImageUrl = urlData.signedUrl;
 
-     // Update analysis with smile simulation URL (keep the real captured smile intact)
-     const { error: updateError } = await supabase
-       .from('analyses')
-       .update({
-         smile_simulation_url: smileImageUrl,
-       })
-       .eq('id', analysisId);
+    // Update analysis
+    const { error: updateError } = await supabase
+      .from('analyses')
+      .update({ smile_simulation_url: smileImageUrl })
+      .eq('id', analysisId);
 
     if (updateError) {
       console.error('Update error:', updateError);
@@ -138,11 +212,7 @@ serve(async (req) => {
     console.log(`Smile simulation generated successfully for ${analysisId}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        analysisId,
-        smileImageUrl 
-      }),
+      JSON.stringify({ success: true, analysisId, smileImageUrl }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
