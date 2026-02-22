@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.redeem-promo-code]
 verify_jwt = false
+
+[functions.compute-armonia-correlations]
+verify_jwt = false
