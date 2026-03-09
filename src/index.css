@@ -1,3 +1,108 @@
+@layer base {
+  :root {
+    --background:        0 0% 100%;
+    --foreground:        0 0% 0%;
+    --card:              0 0% 97%;
+    --card-foreground:   0 0% 0%;
+    --popover:           0 0% 100%;
+    --popover-foreground:0 0% 0%;
+    --primary:           0 0% 0%;
+    --primary-foreground:0 0% 100%;
+    --secondary:         0 0% 96%;
+    --secondary-foreground:0 0% 0%;
+    --muted:             0 0% 96%;
+    --muted-foreground:  0 0% 45%;
+    --accent:            0 0% 96%;
+    --accent-foreground: 0 0% 0%;
+    --destructive:       0 84% 60%;
+    --destructive-foreground:0 0% 100%;
+    --border:            0 0% 90%;
+    --input:             0 0% 90%;
+    --ring:              0 0% 0%;
+    --radius:            0.25rem;
+  }
+  .dark {
+    --background:        0 0% 4%;
+    --foreground:        0 0% 100%;
+    --card:              0 0% 7%;
+    --card-foreground:   0 0% 100%;
+    --popover:           0 0% 4%;
+    --popover-foreground:0 0% 100%;
+    --primary:           0 0% 100%;
+    --primary-foreground:0 0% 0%;
+    --secondary:         0 0% 10%;
+    --secondary-foreground:0 0% 100%;
+    --muted:             0 0% 10%;
+    --muted-foreground:  0 0% 55%;
+    --accent:            0 0% 10%;
+    --accent-foreground: 0 0% 100%;
+    --destructive:       0 63% 31%;
+    --destructive-foreground:0 0% 100%;
+    --border:            0 0% 100% / 0.08;
+    --input:             0 0% 100% / 0.08;
+    --ring:              0 0% 100%;
+  }
+}
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-hm-white text-hm-black font-sans antialiased; }
+}
+
+/* ═══════════════════════════════════════════════
+   HUMANA.AI — Base CSS Variables (Dark System)
+   Sistema Miró · Marzo 2026
+   ═══════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* shadcn dark theme — alineado con sistema Miró */
+    --background:          10 10 10;    /* #0A0A0A */
+    --foreground:          255 255 255;
+
+    --card:                17 17 17;    /* #111111 */
+    --card-foreground:     255 255 255;
+
+    --popover:             17 17 17;
+    --popover-foreground:  255 255 255;
+
+    --primary:             201 168 124; /* #C9A87C gold */
+    --primary-foreground:  10 10 10;
+
+    --secondary:           26 26 26;
+    --secondary-foreground:255 255 255;
+
+    --muted:               26 26 26;
+    --muted-foreground:    150 150 150;
+
+    --accent:              26 26 26;
+    --accent-foreground:   255 255 255;
+
+    --destructive:         239 68 68;
+    --destructive-foreground: 255 255 255;
+
+    --border:              255 255 255 / 0.07;
+    --input:               255 255 255 / 0.07;
+    --ring:                201 168 124;
+
+    --radius: 0.25rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  body {
+    @apply bg-hm-bg text-hm-text font-body antialiased;
+    background: #0A0A0A;
+    color: #FFFFFF;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+}
+
+/* ═══ App-specific styles ═══ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -1,48 +1,80 @@
-/* humana-tokens.css — HUMANA.AI Design System
-   Fuente: clinicamiro-v2.html | Marzo 2026
-   Inyectar en cada app via <link> en index.html */
+/* ═══════════════════════════════════════════════════════════
+   HUMANA.AI Design System — v3.0 — Marzo 2026
+   Base: BLANCO + NEGRO estilo Overjet
+   Cada app suma 1 color acento
+   ═══════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
 
 :root {
-  --hm-white: #FFFFFF;
-  --hm-off-white: #F7F7F5;
-  --hm-light-gray: #EBEBEB;
-  --hm-mid-gray: #999999;
-  --hm-dark-gray: #333333;
-  --hm-black: #000000;
-  --hm-accent: #C9A87C;
-  --hm-accent-light: #E8D5B0;
-  --hm-font-display: 'Outfit', -apple-system, sans-serif;
-  --hm-font-serif: 'Cormorant Garamond', Georgia, serif;
-  --hm-font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
-  --hm-ease: cubic-bezier(.16, 1, .3, 1);
-  --hm-section-pad: clamp(6rem, 15vh, 12rem);
-  --hm-container-max: 1400px;
-  --hm-container-pad: clamp(1.5rem, 4vw, 4rem);
+  /* Base */
+  --hm-white:     #FFFFFF;
+  --hm-off:       #F7F7F5;
+  --hm-light:     #EBEBEB;
+  --hm-mid:       #999999;
+  --hm-dark:      #333333;
+  --hm-black:     #000000;
+
+  /* Tipografía */
+  --hm-font-d:    'Outfit', -apple-system, sans-serif;
+  --hm-font-s:    'Cormorant Garamond', Georgia, serif;
+  --hm-font-m:    'SF Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Motion */
+  --hm-ease:      cubic-bezier(.16, 1, .3, 1);
+
+  /* Layout */
+  --hm-pad:       clamp(6rem, 14vh, 11rem);
+  --hm-container: 1400px;
+  --hm-gutter:    clamp(1.5rem, 4vw, 4rem);
+  --hm-radius:    2px;
+
+  /* Acento por app (se sobreescribe en cada app) */
+  --hm-accent:    #C9A87C;  /* default: Miró gold */
 }
 
-[data-theme="dark"] {
-  --hm-white: #0A0A0A;
-  --hm-off-white: #111111;
-  --hm-light-gray: rgba(255,255,255,0.06);
-  --hm-mid-gray: #888888;
-  --hm-dark-gray: #CCCCCC;
-  --hm-black: #FFFFFF;
+/* Acentos por app — agregar data-app al <html> o <body> */
+[data-app="miro"]       { --hm-accent: #C9A87C; }
+[data-app="humana"]     { --hm-accent: #3B82F6; }
+[data-app="implantx"]   { --hm-accent: #10B981; }
+[data-app="scandent"]   { --hm-accent: #06B6D4; }
+[data-app="zerocaries"] { --hm-accent: #14B8A6; }
+[data-app="simetria"]   { --hm-accent: #8B5CF6; }
+[data-app="armonia"]    { --hm-accent: #EC4899; }
+[data-app="copilot"]    { --hm-accent: #84CC16; }
+[data-app="sentia"]     { --hm-accent: #F97316; }
+
+/* Modo noche */
+[data-mode="dark"] {
+  --hm-white:   #0A0A0A;
+  --hm-off:     #111111;
+  --hm-light:   rgba(255,255,255,0.07);
+  --hm-mid:     #888888;
+  --hm-dark:    #CCCCCC;
+  --hm-black:   #FFFFFF;
 }
 
-[data-brand="miro"]       { --hm-accent: #C9A87C; }
-[data-brand="humana"]     { --hm-accent: #3B82F6; }
-[data-brand="montoya"]    { --hm-accent: #94A3B8; }
-[data-brand="implantx"]   { --hm-accent: #10B981; }
-[data-brand="scandent"]   { --hm-accent: #06B6D4; }
-[data-brand="zerocaries"] { --hm-accent: #14B8A6; }
-[data-brand="simetria"]   { --hm-accent: #8B5CF6; }
-[data-brand="armonia"]    { --hm-accent: #EC4899; }
-[data-brand="copilot"]    { --hm-accent: #84CC16; }
-[data-brand="sentia"]     { --hm-accent: #F97316; }
+/* Reset base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--hm-font-d);
+  background: var(--hm-white);
+  color: var(--hm-black);
+  overflow-x: hidden;
+}
 
-::selection { background: var(--hm-accent); color: var(--hm-white); }
-::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar       { width: 2px; }
 ::-webkit-scrollbar-track { background: var(--hm-white); }
-::-webkit-scrollbar-thumb { background: var(--hm-light-gray); }
+::-webkit-scrollbar-thumb { background: var(--hm-light); }
+::selection { background: var(--hm-accent); color: #fff; }
+
+/* Helpers */
+.hm-wrap    { max-width: var(--hm-container); margin: 0 auto; padding-inline: var(--hm-gutter); }
+.hm-mono    { font-family: var(--hm-font-m); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+.hm-serif   { font-family: var(--hm-font-s); }
+.hm-accent  { color: var(--hm-accent); }
+
+/* Scroll reveal */
+.hm-r { opacity:0; transform:translateY(32px); transition:opacity .85s var(--hm-ease), transform .85s var(--hm-ease); }
+.hm-r.hm-on { opacity:1; transform:none; }
