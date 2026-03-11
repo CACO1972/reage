@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const FLOW_API_URL = 'https://www.flow.cl/api';
-const PREMIUM_PRICE = 5990; // CLP
+const PREMIUM_PRICE = 6990; // CLP
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

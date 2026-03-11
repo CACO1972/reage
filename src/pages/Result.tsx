@@ -63,9 +63,7 @@ export default function Result() {
   const [refreshing, setRefreshing] = useState(false);
   const premiumSectionRef = useRef<HTMLDivElement>(null);
 
-  // Test mode: ?testMode=premium or ?testMode=free
-  const testMode = searchParams.get('testMode');
-  const isTestMode = testMode === 'premium' || testMode === 'free';
+  // No test mode in production
 
   useEffect(() => {
     if (searchParams.get('payment') === 'success') {
@@ -181,7 +179,7 @@ export default function Result() {
   const hasFacialData = analysis.facial_symmetry_score !== null;
   const hasAllData = hasSmileData && hasFacialData;
   
-  const isPremium = testMode === 'premium' ? true : testMode === 'free' ? false : analysis.mode === 'premium';
+  const isPremium = analysis.mode === 'premium';
 
   return (
     <Layout>
@@ -215,11 +213,6 @@ export default function Result() {
                 month: 'long'
               })}
             </p>
-            {isTestMode && (
-              <div className="mt-2 inline-block px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 text-xs font-medium">
-                🧪 Modo Prueba: {testMode?.toUpperCase()}
-              </div>
-            )}
           </motion.div>
 
           {!hasAllData ? (
