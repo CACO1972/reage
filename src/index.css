@@ -92,9 +92,7 @@
   * { @apply border-border; }
 
   body {
-    @apply bg-hm-bg text-hm-text font-body antialiased;
-    background: #0A0A0A;
-    color: #FFFFFF;
+    @apply bg-hm-white text-hm-black font-body antialiased;
   }
 
   h1, h2, h3, h4 {
