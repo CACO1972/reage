@@ -62,11 +62,12 @@ serve(async (req) => {
         patient_name: patientName,
         patient_email: patientEmail,
         patient_phone: patientPhone,
-        doctor_id: doctorId,
-        doctor_name: doctorName,
-        appointment_date: appointmentDate,
-        payment_status: "pending",
-        amount: APPOINTMENT_PRICE,
+        professional_id: parseInt(doctorId),
+        professional_name: doctorName,
+        appointment_date: appointmentDate.split("T")[0],
+        appointment_time: (appointmentDate.split("T")[1] || "00:00:00").slice(0, 8),
+        status: "pending_payment",
+        amount_clp: APPOINTMENT_PRICE,
       })
       .select()
       .single();

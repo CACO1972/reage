@@ -21,12 +21,62 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const mercadopagoToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
     const dentalinkToken = Deno.env.get("DENTALINK_TOKEN");
+    const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse webhook notification
-    const body = await req.json();
+    // Read raw body for signature verification
+    const rawBody = await req.text();
+    const body = JSON.parse(rawBody);
     console.log("Mercado Pago webhook received:", JSON.stringify(body));
+
+    // Verify Mercado Pago webhook signature (HMAC SHA-256)
+    if (webhookSecret) {
+      const xSignature = req.headers.get("x-signature");
+      const xRequestId = req.headers.get("x-request-id");
+
+      if (!xSignature || !xRequestId) {
+        console.error("Missing webhook signature headers");
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let ts: string | undefined;
+      let hash: string | undefined;
+      for (const part of xSignature.split(",")) {
+        const [k, v] = part.split("=").map((s) => s.trim());
+        if (k === "ts") ts = v;
+        if (k === "v1") hash = v;
+      }
+
+      const dataId = body.data?.id?.toString() || "";
+      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(webhookSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sig = await crypto.subtle.sign("HMAC", key, enc.encode(manifest));
+      const computed = Array.from(new Uint8Array(sig))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      if (computed !== hash) {
+        console.error("Invalid webhook signature");
+        return new Response(
+          JSON.stringify({ error: "Invalid signature" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      console.warn("MERCADOPAGO_WEBHOOK_SECRET not set — skipping signature verification");
+    }
 
     // Handle different notification types
     if (body.type === "payment") {
@@ -60,29 +110,29 @@ serve(async (req) => {
       const appointmentId = payment.external_reference;
       const status = payment.status;
 
-      // Map Mercado Pago status to our status
-      let paymentStatus: string;
+      // Map Mercado Pago status to clinic_appointments.status values
+      let appointmentStatus: string;
       switch (status) {
         case "approved":
-          paymentStatus = "completed";
+          appointmentStatus = "paid";
           break;
         case "pending":
         case "in_process":
-          paymentStatus = "pending";
+          appointmentStatus = "pending_payment";
           break;
         case "rejected":
         case "cancelled":
-          paymentStatus = "failed";
+          appointmentStatus = "cancelled";
           break;
         default:
-          paymentStatus = "pending";
+          appointmentStatus = "pending_payment";
       }
 
       // Update appointment in database
       const { data: appointment, error: updateError } = await supabase
         .from("clinic_appointments")
         .update({
-          payment_status: paymentStatus,
+          status: appointmentStatus,
           mercadopago_payment_id: paymentId.toString(),
           updated_at: new Date().toISOString(),
         })
@@ -95,10 +145,10 @@ serve(async (req) => {
         throw new Error("Failed to update appointment");
       }
 
-      console.log("Appointment updated:", appointment.id, "Status:", paymentStatus);
+      console.log("Appointment updated:", appointment.id, "Status:", appointmentStatus);
 
       // If payment completed, create patient and appointment in Dentalink
-      if (paymentStatus === "completed" && dentalinkToken) {
+      if (appointmentStatus === "paid" && dentalinkToken) {
         console.log("Payment completed, creating Dentalink records...");
 
         try {
@@ -139,7 +189,7 @@ serve(async (req) => {
             
             const appointmentPayload = {
               id_paciente: parseInt(dentalinkPatientId),
-              id_profesional: parseInt(appointment.doctor_id) || 1,
+              id_profesional: appointment.professional_id || 1,
               fecha: appointmentDate.toISOString().split("T")[0],
               hora_inicio: appointmentDate.toTimeString().slice(0, 5),
               duracion: 60, // 1 hour appointment
